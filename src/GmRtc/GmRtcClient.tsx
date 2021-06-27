@@ -5,10 +5,17 @@ import React, {
   useImperativeHandle,
   useRef,
   useState,
+  useReducer,
 } from 'react';
 import Draggable from 'react-draggable';
 import PubSub from 'pubsub-js';
-import { GmRtcClientRef, IGmRtcProps, IUpdateVideoViewParams } from './types';
+import {
+  GmRtcClientPluginFunc,
+  GmRtcClientRef,
+  IGmRtcProps,
+  IUpdateVideoViewParams,
+  PluginEvent,
+} from './types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
 import { RemoteStreamInfo, RemoteUserInfo, Stream } from 'trtc-js-sdk';
@@ -21,13 +28,22 @@ import { ECallState } from '@/types/ECallState';
 import { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
 import { GmIcon, GmNotification } from '@wjj/gm-antd';
 import { formatDuration, onExitFullScreen, onFullScreen } from '@/utils';
-import { pullAllBy, isNil, cloneDeep, find, findIndex, isString, filter } from 'lodash-es';
+import {
+  pullAllBy,
+  isNil,
+  cloneDeep,
+  find,
+  findIndex,
+  isString,
+  filter,
+  capitalize,
+} from 'lodash-es';
 import MessageToast, {
   MessageItemParams,
   MessageNoticeFrequency,
   EMessageLevel,
 } from './MessageToast';
-import GmRtc, { EventHandler, IEventHandler, IGmRtc, RTCEvent } from './GmRtc';
+import GmRtc, { EventHandler, EventTarget, IEventHandler, IGmRtc, RTCEvent } from './GmRtc';
 import EVENT from '@/types/Event';
 import { IVideoChatMessage } from '@/types/VideoChatMessage';
 import {
@@ -127,19 +143,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     handlers = Object.assign(handlers, pluginHandlers);
   };
 
-  const pluginContext = {
-    addImperativeHandle,
-    name: '123',
-  };
-
-  const pluginContainer = usePluginContainer(props, pluginContext);
-
-  useEffect(() => {
-    pluginContainer?.onJoinSuccess('23');
-  }, []);
-
-  // @ts-ignore
-  const getImChatState = useCallback(() => window.g_app._store.getState().imchat, []);
+  const [_, forceUpdate] = useReducer(x => x + 1, 0);
 
   const { fullScreen, selfMember, callState, expand, mainVideoView, mute, videoType } = (data ||
     {}) as StateType;
@@ -156,24 +160,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 音视频计时消息id
   const videoTimeToastId = useRef<Nullable<string>>(null);
 
-  useImperativeHandle(ref, () => ({
-    updateVideoView,
-    messageToast,
-    namespace,
-    getState,
-    dispatch,
-    onCreateMessage: handleVideoChatCreate,
-    onInviteMessage: handleVideoChatInvite,
-    onCancelMessage: handleVideoChatCancel,
-    onTimeoutCancelMessage: handleVideoChatTimeoutCancel,
-    onHangUpMessage: handleVideoChatHangup,
-    onRejectMessage: handleVideoChatReject,
-    onTimeoutRejectMessage: handleVideoChatTimeoutReject,
-    onSwitchMessage: handleVideoChatSwitch,
-    onEnterRoomMessage: handleVideoChatEnterRoom,
-    onAddMemberMessage: handleVideoChatAddMember,
-    ...handlers,
-  }));
+  /* 插件初始化生命周期 */
+  useEffect(() => {
+    pluginContainer?.onInitial?.();
+  }, []);
 
   /* 数据比较 */
   const compareList = <T, K>(
@@ -478,6 +468,33 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await updateVideoView();
   };
 
+  /**
+   * 短横线命名转驼峰命名 my-fun -> onMyFun
+   * @param name
+   */
+  const transformKebabCaseToCamelCase = (name: string) => {
+    return `on${(name || '')
+      .split('-')
+      .map(item => capitalize(item))
+      .join('')}`;
+  };
+
+  /* 暴露rtc事件给外部 */
+  const [externalEventHandler] = useState<IEventHandler>(() => {
+    const handler = {} as EventTarget;
+    Object.keys(RTCEvent).forEach(item => {
+      const name = RTCEvent[item];
+      const formatName = transformKebabCaseToCamelCase(name);
+      function eventFn() {
+        pluginContainer?.[formatName]?.(...arguments);
+      }
+      handler[name] = eventFn;
+    });
+    return new EventHandler(handler);
+  });
+
+  console.log('externalEventHandler', externalEventHandler);
+
   /* 事件处理 */
   const [eventHandler] = useState<IEventHandler>(
     new EventHandler({
@@ -557,7 +574,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * 获取腾讯im相关信息
    */
   const getTencentImInfo = async () => {
-    const { userId, tencentUserSig: userSig } = getImChatState();
+    const { userId, userSig } = (getState() || {}) as StateType;
     if (!isNil(userId) && !isNil(userSig)) {
       return {
         userId,
@@ -684,7 +701,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     () =>
       find(
         filter(getState()?.members, o => o.isKeyMember === EKeyMember.MAIN),
-        o => o.memberAccount !== getImChatState()?.userId,
+        o => o.memberAccount !== getState()?.userId,
       ),
     [],
   );
@@ -1063,6 +1080,41 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       level: EMessageLevel.MIDDLE,
     });
   };
+
+  const utilsFn = {
+    updateVideoView,
+    messageToast,
+    namespace,
+    getState,
+    dispatch,
+    onCreateMessage: handleVideoChatCreate,
+    onInviteMessage: handleVideoChatInvite,
+    onCancelMessage: handleVideoChatCancel,
+    onTimeoutCancelMessage: handleVideoChatTimeoutCancel,
+    onHangUpMessage: handleVideoChatHangup,
+    onRejectMessage: handleVideoChatReject,
+    onTimeoutRejectMessage: handleVideoChatTimeoutReject,
+    onSwitchMessage: handleVideoChatSwitch,
+    onEnterRoomMessage: handleVideoChatEnterRoom,
+    onAddMemberMessage: handleVideoChatAddMember,
+  };
+
+  const pluginContext = {
+    addImperativeHandle,
+    forceUpdate,
+    ...utilsFn,
+  };
+
+  const pluginContainer = usePluginContainer(props, pluginContext);
+
+  console.log('pluginContainer', pluginContainer);
+
+  pluginContainer?.onJoinSuccess?.('23');
+
+  useImperativeHandle(ref, () => ({
+    ...utilsFn,
+    ...handlers,
+  }));
 
   // 渲染呼叫提示信息
   const renderTips = useCallback(

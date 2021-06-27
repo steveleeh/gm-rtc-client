@@ -11,6 +11,7 @@ import TRTC, {
   RemoteUserInfo,
 } from 'trtc-js-sdk';
 import { isBoolean, findIndex } from 'lodash-es';
+import { v4 as uuid } from 'uuid';
 
 export interface IGmRtcOptions {
   /* 应用标识 */
@@ -162,7 +163,7 @@ export interface IGmRtc {
   /* 获取本地流 */
   getLocalStream: () => Nullable<LocalStream>;
   /* 订阅事件 */
-  subscribe: (handler: IEventHandler) => void;
+  subscribe: (handler: IEventHandler) => string;
   /* 进房 */
   join: () => Promise<void>;
   /* 推送本地流 */
@@ -228,7 +229,7 @@ class GmRtc implements IGmRtc {
   private readonly _members: Map<string, Stream>;
 
   /* 房间内成员 */
-  private _eventHandler: IEventHandler;
+  private _eventHandler: Map<string, IEventHandler>;
 
   /* 音视频通话客户端对象 */
   private readonly _client: Client;
@@ -247,7 +248,7 @@ class GmRtc implements IGmRtc {
     this._localStream = null;
     this._remoteStreams = [];
     this._members = new Map();
-    this._eventHandler = new EventHandler();
+    this._eventHandler = new Map<string, IEventHandler>();
     console.log('client： sdkAppId', this._sdkAppId);
     console.log('client： userId:', this._userId);
     console.log('client： _userSig', this._userSig);
@@ -285,10 +286,12 @@ class GmRtc implements IGmRtc {
    * @param handler 处理
    */
   private executeEventFn<K extends keyof RTCEventMap>(eventName: K, handler?: RTCEventMap[K]) {
-    const eventFn = this._eventHandler.getEvent(eventName);
-    if (eventFn) {
-      eventFn(handler as RTCEventMap[K]);
-    }
+    this._eventHandler.forEach(item => {
+      const eventFn = item.getEvent(eventName);
+      if (eventFn) {
+        eventFn(handler as RTCEventMap[K]);
+      }
+    });
   }
 
   /**
@@ -296,7 +299,21 @@ class GmRtc implements IGmRtc {
    * @param handler 事件处理器
    */
   public subscribe(handler: IEventHandler) {
-    this._eventHandler = handler;
+    const subscribeId = uuid();
+    this._eventHandler.set(subscribeId, handler);
+    return subscribeId;
+  }
+
+  /**
+   * 取消绑定
+   * @param subscribeId 订阅id
+   */
+  public unsubscribe(subscribeId?: string) {
+    if (subscribeId) {
+      this._eventHandler.delete(subscribeId);
+    } else {
+      this._eventHandler.clear();
+    }
   }
 
   /**
