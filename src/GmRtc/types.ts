@@ -4,7 +4,7 @@ import React from 'react';
 import { IGmRtc } from './GmRtc';
 import { StateType } from './models/index';
 import { IMessageToast } from './MessageToast';
-import { ICreateClientParams } from '@/GmRtc/index';
+import { ICreateClientParams, resolveProps } from '@/GmRtc/index';
 import { IVideoChatMessage } from '@/types/VideoChatMessage';
 
 export type BaseReducers<S = any, A extends Action = AnyAction> = {
@@ -36,15 +36,13 @@ export interface IGmRtcProps {
 }
 
 export interface GmRtcClientRef {
-  /* 获取rct实例 */
-  getRtc: () => Nullable<IGmRtc>;
   /* 获取namespace */
-  getNamespace: () => string;
+  namespace: string;
   /* 获取数据对象 */
   getState: () => Nullable<StateType>;
   dispatch: Dispatch;
   /* 获取消息提示实例 */
-  getMessageToast: () => IMessageToast;
+  messageToast: IMessageToast;
   /* 更新视频视图 */
   updateVideoView(params?: IUpdateVideoViewParams): Promise<void>;
   /* 创建通话消息 */
@@ -69,15 +67,21 @@ export interface GmRtcClientRef {
   onAddMemberMessage: (params: IVideoChatMessage) => Promise<void>;
 }
 
-export interface GmRtcClientContext extends GmRtcClientRef {
+export interface GmRtcClientPluginContext {
   /** 内部使用 允许给组件的 ref 上添加一些对外暴露的属性 */
   addImperativeHandle(handlers: object): void;
   /** 强制组件重渲染 */
-  forceUpdate: React.DispatchWithoutAction;
+  // forceUpdate: React.DispatchWithoutAction;
+  name: string;
+}
+
+interface GmRtcClientPluginFunc {
+  onJoinSuccess: (name: string) => void;
+  onJoinError: (name: string) => void;
 }
 
 export interface GmRtcClientPlugin {
-  (props: IGmRtcProps, context: GmRtcClientContext): {
-    name: () => void;
-  };
+  (props: IGmRtcProps, context: GmRtcClientPluginContext): GmRtcClientPluginFunc;
 }
+
+export type ResolvedProps = ReturnType<typeof resolveProps>;

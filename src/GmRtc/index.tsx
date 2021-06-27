@@ -16,6 +16,7 @@ import styles from './index.less';
 import UsePrivateModel from './usePrivateModel';
 import Model, { IVideoView, StateType } from './models';
 import { CallModeText, ECallType } from '@/types/ECallType';
+import { usePluginContainer } from './plugins';
 import { ECallState } from '@/types/ECallState';
 import { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
 import { GmIcon, GmNotification } from '@wjj/gm-antd';
@@ -39,6 +40,7 @@ import { CallerUserCardText } from '@/types/ECallerUserCard';
 import { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-call-create-response.model';
 import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
+import { im } from '@wjj/gm-type';
 
 /* 消息提示文案 */
 const MessageText = {
@@ -120,6 +122,22 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     model: Model,
   });
 
+  let handlers = {};
+  const addImperativeHandle = pluginHandlers => {
+    handlers = Object.assign(handlers, pluginHandlers);
+  };
+
+  const pluginContext = {
+    addImperativeHandle,
+    name: '123',
+  };
+
+  const pluginContainer = usePluginContainer(props, pluginContext);
+
+  useEffect(() => {
+    pluginContainer?.onJoinSuccess('23');
+  }, []);
+
   // @ts-ignore
   const getImChatState = useCallback(() => window.g_app._store.getState().imchat, []);
 
@@ -140,21 +158,21 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   useImperativeHandle(ref, () => ({
     updateVideoView,
-    getMessageToast,
-    getNamespace,
-    getRtc,
+    messageToast,
+    namespace,
     getState,
     dispatch,
     onCreateMessage: handleVideoChatCreate,
     onInviteMessage: handleVideoChatInvite,
-    // onCancelMessage: handleVideoChatCancel,
-    // onTimeoutCancelMessage: handleVideoChatTimeoutCancel,
-    // onHangUpMessage: handleVideoChatHangup,
-    // onRejectMessage: handleVideoChatReject,
-    // onTimeoutRejectMessage: handleVideoChatTimeoutReject,
-    // onSwitchMessage: handleVideoChatSwitch,
-    // onEnterRoomMessage: handleVideoChatEnterRoom,
-    // onAddMemberMessage: handleVideoChatAddMember,
+    onCancelMessage: handleVideoChatCancel,
+    onTimeoutCancelMessage: handleVideoChatTimeoutCancel,
+    onHangUpMessage: handleVideoChatHangup,
+    onRejectMessage: handleVideoChatReject,
+    onTimeoutRejectMessage: handleVideoChatTimeoutReject,
+    onSwitchMessage: handleVideoChatSwitch,
+    onEnterRoomMessage: handleVideoChatEnterRoom,
+    onAddMemberMessage: handleVideoChatAddMember,
+    ...handlers,
   }));
 
   /* 数据比较 */
@@ -1225,7 +1243,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   };
 
   /* 获取rtc实例 */
-  const getRtc = () => {
+  const getRtc = function () {
     return getState()?.client as Nullable<IGmRtc>;
   };
 
