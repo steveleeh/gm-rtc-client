@@ -56,7 +56,6 @@ import { CallerUserCardText } from '@/types/ECallerUserCard';
 import { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-call-create-response.model';
 import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
-import { im } from '@wjj/gm-type';
 
 /* 消息提示文案 */
 const MessageText = {
@@ -713,8 +712,16 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /* 创建音视频 */
   const handleVideoChatCreate = async (params: ICreateClientParams) => {
     console.log('handleVideoChatCreate', params);
-    // 创建音视频会话
-    const res: IImCallCreateResponse = await createVideoCallUsingPOST(params);
+    let res = {} as IImCallCreateResponse;
+    try {
+      // 创建音视频会话
+      let res = await createVideoCallUsingPOST(params);
+      console.log('创建音视频会话成功');
+    } catch (e) {
+      console.error('创建音视频会话失败');
+      await leave();
+      return;
+    }
     await dispatch({
       type: `${namespace}/setState`,
       payload: {
@@ -906,7 +913,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /* 结束音视频 */
   const leave = async () => {
     if (getState()?.client) {
-      await getState()?.client?.leave();
+      await getState()?.client?.leave?.();
     }
     await initialState();
   };

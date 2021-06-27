@@ -17,9 +17,7 @@ export interface useRegisterPlugin {
 export const useRegisterPlugin: useRegisterPlugin = (options = {}) => {
   return (props, context) => {
     const onInitial = async () => {
-      console.log('onInitialaaaa', options, context);
       if (context.dispatch && context.namespace && context.getState) {
-        console.log('数据注入成功');
         await context.dispatch({
           type: `${context.namespace}/setState`,
           payload: {

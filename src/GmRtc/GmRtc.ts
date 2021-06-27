@@ -249,10 +249,6 @@ class GmRtc implements IGmRtc {
     this._remoteStreams = [];
     this._members = new Map();
     this._eventHandler = new Map<string, IEventHandler>();
-    console.log('client： sdkAppId', this._sdkAppId);
-    console.log('client： userId:', this._userId);
-    console.log('client： _userSig', this._userSig);
-    console.log('client： roomid', this._roomId, typeof this._roomId);
 
     // 创建一个实时音视频通话的客户端对象
     this._client = TRTC.createClient({

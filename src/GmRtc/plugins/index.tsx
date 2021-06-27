@@ -9,12 +9,10 @@ export const usePluginContainer = (props: ResolvedProps, context: GmRtcClientPlu
   const { plugins: rawPlugins } = props;
 
   const plugins = rawPlugins.map(usePlugin => usePlugin?.(props, context)).filter(Boolean);
-  console.log('plugins', plugins);
 
   const container: GmRtcClientPluginFunc = {} as GmRtcClientPluginFunc;
   Object.keys(PluginEvent).map(item => {
     const name = PluginEvent[item];
-    console.log('name', name);
     function pluginFn() {
       for (const plugin of plugins) {
         if (plugin?.[name]) {

@@ -136,7 +136,6 @@ const Model: BaseModel<StateType> = {
   },
   reducers: {
     setState(state, { payload }) {
-      console.log('setState', payload);
       return {
         ...state,
         ...payload,
