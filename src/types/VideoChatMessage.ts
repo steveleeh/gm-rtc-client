@@ -8,4 +8,5 @@ export interface IVideoChatMessage {
   sponsorHeadPortrait: string;
   sponsorImKey: string;
   sponsorNickName: string;
+  extend?: string;
 }

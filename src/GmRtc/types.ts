@@ -36,8 +36,6 @@ export interface IGmRtcProps {
   visible?: boolean;
   style?: React.CSSProperties;
   className?: string;
-  /** 订阅消息的主题 */
-  topic?: string;
   /** 插件 */
   plugins: GmRtcClientPlugin[];
 }
@@ -45,7 +43,11 @@ export interface IGmRtcProps {
 /** 插件事件 */
 export enum PluginEvent {
   /** 初始化 */
-  ON_INITIAL = 'onInitial',
+  INITIAL = 'onInitial',
+  /** 离开 */
+  LEAVE = 'onLeave',
+  /** 计时 */
+  TICK = 'onTick',
   /** 进房成功 */
   JOIN_SUCCESS = 'onJoinSuccess',
   /** 进房失败 */
@@ -93,7 +95,9 @@ export enum PluginEvent {
 }
 
 export interface PluginRtcEventMap {
-  [PluginEvent.ON_INITIAL]: void;
+  [PluginEvent.INITIAL]: void;
+  [PluginEvent.LEAVE]: void;
+  [PluginEvent.TICK]: number;
   [PluginEvent.JOIN_SUCCESS]: any;
   [PluginEvent.JOIN_ERROR]: any;
   [PluginEvent.INITIALIZE_SUCCESS]: any;

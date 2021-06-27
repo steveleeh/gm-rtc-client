@@ -8,14 +8,7 @@ import React, {
   useReducer,
 } from 'react';
 import Draggable from 'react-draggable';
-import PubSub from 'pubsub-js';
-import {
-  GmRtcClientPluginFunc,
-  GmRtcClientRef,
-  IGmRtcProps,
-  IUpdateVideoViewParams,
-  PluginEvent,
-} from './types';
+import { GmRtcClientRef, IGmRtcProps, IUpdateVideoViewParams } from './types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
 import { RemoteStreamInfo, RemoteUserInfo, Stream } from 'trtc-js-sdk';
@@ -44,7 +37,6 @@ import MessageToast, {
   EMessageLevel,
 } from './MessageToast';
 import GmRtc, { EventHandler, EventTarget, IEventHandler, IGmRtc, RTCEvent } from './GmRtc';
-import EVENT from '@/types/Event';
 import { IVideoChatMessage } from '@/types/VideoChatMessage';
 import {
   audioVideoSwitchTypeUsingPOST,
@@ -102,8 +94,6 @@ interface IBtnItem {
   node: React.ReactNode;
 }
 
-export type IVideoChatCallback = (value: any) => void;
-
 export interface ICreateClientParams {
   /* 呼叫类型(1音频呼叫 2视频呼叫) */
   callType: number;
@@ -123,14 +113,9 @@ interface ICreateRtcClientParams {
   roomId: number;
 }
 
-export interface IEventItem {
-  name: string;
-  callback: (value: any) => void;
-}
-
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
-  const { style, className, topic } = props;
+  const { style, className } = props;
 
   const { namespace, data, dispatch, getState } = UsePrivateModel<StateType | null>({
     prefix: 'videochat',
@@ -142,6 +127,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     handlers = Object.assign(handlers, pluginHandlers);
   };
 
+  // @ts-ignore
   const [_, forceUpdate] = useReducer(x => x + 1, 0);
 
   const { fullScreen, selfMember, callState, expand, mainVideoView, mute, videoType } = (data ||
@@ -492,8 +478,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     return new EventHandler(handler);
   });
 
-  console.log('externalEventHandler', externalEventHandler);
-
   /* 事件处理 */
   const [eventHandler] = useState<IEventHandler>(
     new EventHandler({
@@ -560,6 +544,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       video: getState()?.callType === ECallType.VIDEO,
     });
     newRtcClient.subscribe(eventHandler);
+    newRtcClient.subscribe(externalEventHandler);
     await dispatch({
       type: `${namespace}/setState`,
       payload: {
@@ -643,6 +628,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         time = newTime;
       }
       time = performance.now() - initialTime;
+      dispatch({
+        type: `${namespace}/setState`,
+        payload: {
+          time,
+        },
+      });
+      pluginContainer.onTick?.(time);
       return formatDuration(time);
     };
   }, []);
@@ -659,39 +651,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       messageToast.destory();
     };
   }, [messageToast]);
-
-  /**
-   * 是否处理该条消息
-   * @param message 消息内容
-   * @param 订阅消息名称
-   */
-  const isHandlerMessage = useCallback((name: string, message: IVideoChatMessage): boolean => {
-    const roomId = getState()?.roomId;
-    if (name === EVENT.VIDEO_CHAT_INVITE_HANDLER) {
-      return isNil(roomId);
-    }
-    // 需要在视频拨打中并且和当前进行中的房间号匹配才处理
-    const messageCodeList: string[] = [
-      EVENT.VIDEO_CHAT_INVITE_HANDLER,
-      EVENT.VIDEO_CHAT_TIMEOUT_CANCEL_HANDLER,
-      EVENT.VIDEO_CHAT_HANGUP_HANDLER,
-      EVENT.VIDEO_CHAT_REJECT_HANDLER,
-      EVENT.VIDEO_CHAT_TIMEOUT_REJECT_HANDLER,
-      EVENT.VIDEO_CHAT_SWITCH_HANDLER,
-      EVENT.VIDEO_CHAT_ENTER_ROOM_HANDLER,
-      EVENT.VIDEO_CHAT_ADD_MEMBER_HANDLER,
-    ];
-    if (messageCodeList.some(o => o === name)) {
-      return !isNil(roomId) && message.roomId === roomId;
-    }
-    return true;
-  }, []);
-
-  /* 订阅的消息主题 */
-  const getTopic = useCallback(
-    (eventName: string) => (topic ? `${topic}-${eventName}` : eventName),
-    [topic],
-  );
 
   /**
    * 默认选中的用户
@@ -712,10 +671,14 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /* 创建音视频 */
   const handleVideoChatCreate = async (params: ICreateClientParams) => {
     console.log('handleVideoChatCreate', params);
+    if (getState()?.roomId) {
+      GmNotification.error('存在进行中的视频通话，请先挂断');
+      return;
+    }
     let res = {} as IImCallCreateResponse;
     try {
       // 创建音视频会话
-      let res = await createVideoCallUsingPOST(params);
+      res = await createVideoCallUsingPOST(params);
       console.log('创建音视频会话成功');
     } catch (e) {
       console.error('创建音视频会话失败');
@@ -740,6 +703,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       await client.join();
       await client.publish();
     }
+    await setMainMember(params.calledAccountNo);
   };
 
   /* 取消音视频会话 */
@@ -763,11 +727,32 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     });
   };
 
+  /**
+   * 设置主叫人
+   * @param imkey 主叫人imkey
+   */
+  const setMainMember = async (imkey: string) => {
+    const mainMember = find(getState()?.members, o => o.memberAccount === imkey);
+    // 设置主叫人
+    await dispatch({
+      type: `${namespace}/setState`,
+      payload: {
+        mainMember,
+      },
+    });
+  };
+
   /* 会话邀请 */
   const handleVideoChatInvite = async (value: IVideoChatMessage) => {
     console.log('handleVideoChatInvite', value);
     if (!isNil(getState()?.roomId)) {
       return;
+    }
+    let extend = value.extend;
+    try {
+      extend = JSON.parse(extend);
+    } catch (e) {
+      console.warn('extend parse error', extend);
     }
     // 主叫人imKey
     await dispatch({
@@ -775,6 +760,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       payload: {
         roomId: value.roomId,
         conversationId: value.conversationId,
+        extend,
       },
     });
     await createRtcClient({
@@ -784,6 +770,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       roomId: value.roomId,
       userId: value.sponsorImKey,
     });
+    await setMainMember(value.sponsorImKey);
     // 设置拨打状态
     await changeCallState(ECallState.BE_CALLED);
   };
@@ -870,52 +857,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await updateVideoView();
   };
 
-  /* 全局消息事件 */
-  useEffect(() => {
-    const eventList: IEventItem[] = [
-      { name: EVENT.VIDEO_CHAT_CREATE, callback: handleVideoChatCreate },
-      { name: EVENT.VIDEO_CHAT_INVITE_HANDLER, callback: handleVideoChatInvite },
-      { name: EVENT.VIDEO_CHAT_CANCEL_HANDLER, callback: handleVideoChatCancel },
-      {
-        name: EVENT.VIDEO_CHAT_TIMEOUT_CANCEL_HANDLER,
-        callback: handleVideoChatTimeoutCancel,
-      },
-      { name: EVENT.VIDEO_CHAT_HANGUP_HANDLER, callback: handleVideoChatHangup },
-      { name: EVENT.VIDEO_CHAT_REJECT_HANDLER, callback: handleVideoChatReject },
-      {
-        name: EVENT.VIDEO_CHAT_TIMEOUT_REJECT_HANDLER,
-        callback: handleVideoChatTimeoutReject,
-      },
-      { name: EVENT.VIDEO_CHAT_SWITCH_HANDLER, callback: handleVideoChatSwitch },
-      { name: EVENT.VIDEO_CHAT_ENTER_ROOM_HANDLER, callback: handleVideoChatEnterRoom },
-      { name: EVENT.VIDEO_CHAT_ADD_MEMBER_HANDLER, callback: handleVideoChatAddMember },
-    ];
-
-    /* 过滤事件 */
-    const filterEvent = (name: string, value: any, callback: IVideoChatCallback): void => {
-      if (!isHandlerMessage(name, value)) {
-        return;
-      }
-      callback(value);
-    };
-    const tokenList = eventList.map(item =>
-      PubSub.subscribe(getTopic(item.name), (name: string, value: any) =>
-        filterEvent(item.name, value, item.callback),
-      ),
-    );
-    return () => {
-      tokenList.forEach(item => {
-        PubSub.unsubscribe(item);
-      });
-    };
-  }, []);
-
   /* 结束音视频 */
   const leave = async () => {
     if (getState()?.client) {
       await getState()?.client?.leave?.();
     }
     await initialState();
+    pluginContainer?.onLeave?.();
   };
 
   /* 改变展开状态 */
@@ -1134,11 +1082,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   );
 
   // 渲染操作按钮
-  const renderOperateBtn = (
-    name: React.ReactNode,
-    icon: string,
-    onClick?: MouseEventHandler<Element>,
-  ) => (
+  const renderOperateBtn = (name: React.ReactNode, icon: string, onClick?: MouseEventHandler) => (
     <div className={styles.operateBtn} onClick={onClick}>
       <div className={styles.operateBtnIcon} style={{ backgroundImage: `url("${icon}")` }} />
       <div className={styles.operateBtnText}>{name}</div>
@@ -1290,21 +1234,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   if (callState === ECallState.FREE) {
     return null;
   }
-
-  /* 获取消息提示实例 */
-  const getMessageToast = () => {
-    return messageToast;
-  };
-
-  /* 获取model名称 */
-  const getNamespace = () => {
-    return namespace;
-  };
-
-  /* 获取rtc实例 */
-  const getRtc = function () {
-    return getState()?.client as Nullable<IGmRtc>;
-  };
 
   return (
     <div

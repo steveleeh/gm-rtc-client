@@ -1,4 +1,4 @@
-import { find } from 'lodash-es';
+import { find, pick } from 'lodash-es';
 import { Stream } from 'trtc-js-sdk';
 import { ECallState } from '@/types/ECallState';
 import { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
@@ -37,6 +37,8 @@ export interface StateType {
   selfMember: Nullable<IMembersInfo>;
   /*  选中的用户 */
   selectedMember: Nullable<IMembersInfo>;
+  /*  选中的用户 */
+  mainMember: Nullable<IMembersInfo>;
   /*  当前用户主叫类型 */
   userCard: ECallerUserCard;
   /*  拨打模式：（创建音视频时候定义的，和服务端一致） */
@@ -55,6 +57,10 @@ export interface StateType {
   mainVideoView: IVideoView;
   /* 右侧用户列表视图 */
   minorVideoViews: IVideoView[];
+  extend: Nullable<object>;
+  /* 通话时长: 毫秒 */
+  time: number;
+  [key: string]: any;
 }
 
 // 初始数据
@@ -70,6 +76,7 @@ const initialState = (): StateType => ({
   members: [],
   selfMember: null,
   selectedMember: null,
+  mainMember: null,
   userCard: ECallerUserCard.HEALTH_STEWARD,
   callType: ECallType.VIDEO,
   videoType: ECallType.VIDEO,
@@ -79,6 +86,8 @@ const initialState = (): StateType => ({
   mute: false,
   mainVideoView: {},
   minorVideoViews: [],
+  extend: null,
+  time: 0,
 });
 
 const Model: BaseModel<StateType> = {
@@ -141,8 +150,11 @@ const Model: BaseModel<StateType> = {
         ...payload,
       };
     },
-    clear() {
-      return initialState();
+    clear(state) {
+      return {
+        ...initialState(),
+        ...pick(state, ['sdkAppId', 'userId', 'userSig']),
+      };
     },
   },
 };
