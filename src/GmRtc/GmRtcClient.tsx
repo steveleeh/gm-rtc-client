@@ -388,7 +388,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 远端用户进房 */
   const handlePeerJoin = async (userInfo: RemoteUserInfo) => {
-    console.log('handlePeerJoin');
     await updateVideoView();
     // 提示用户进房信息
     const memberInfo = find(getState()?.members, o => o.memberAccount === userInfo.userId);
@@ -425,7 +424,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 远端流订阅成功 */
   const handleStreamSubscribed = async (evt: RemoteStreamInfo) => {
-    console.log('handleStreamSubscribed', evt);
     if (!videoTimeToastId.current) {
       videoTimeToastId.current = setInfinityToast({
         content: getVideoDuration(),
@@ -448,7 +446,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 远端流更新 */
   const handleStreamUpdate = async (evt: RemoteStreamInfo) => {
-    console.log('handleStreamUpdate', evt);
     // await updateStream(evt);
     await updateVideoView();
   };
@@ -515,14 +512,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /* 创建RTC客户端 */
   const createRtcClient = async (params: ICreateRtcClientParams): Promise<Nullable<IGmRtc>> => {
     const res = await getTencentImInfo();
-    console.log(
-      'getTencentImInfo:',
-      res,
-      '\r\n roomId:',
-      params.roomId,
-      '\r\nsdkAppId:',
-      getState()?.sdkAppId,
-    );
     const sdkAppId = getState()?.sdkAppId as number;
     if (
       isNil(params) ||
@@ -643,7 +632,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     // 订阅消息队列
     messageToast.subscribe(message => {
       const contentText = isString(message.content) ? message.content : message.content();
-      console.log('订阅消息', contentText);
       setTipsText(contentText);
     });
     return () => {
@@ -670,7 +658,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 创建音视频 */
   const handleVideoChatCreate = async (params: ICreateClientParams) => {
-    console.log('handleVideoChatCreate', params);
     if (getState()?.roomId) {
       GmNotification.error('存在进行中的视频通话，请先挂断');
       return;
@@ -679,7 +666,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     try {
       // 创建音视频会话
       res = await createVideoCallUsingPOST(params);
-      console.log('创建音视频会话成功');
     } catch (e) {
       console.error('创建音视频会话失败');
       await leave();
@@ -744,7 +730,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 会话邀请 */
   const handleVideoChatInvite = async (value: IVideoChatMessage) => {
-    console.log('handleVideoChatInvite', value);
     if (!isNil(getState()?.roomId)) {
       return;
     }
@@ -777,7 +762,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 取消会话 */
   const handleVideoChatCancel = async (msg: IVideoChatMessage) => {
-    console.log('handleVideoChatCancel');
     if (ignoreMessage(msg)) {
       return;
     }
@@ -788,7 +772,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 超时取消 */
   const handleVideoChatTimeoutCancel = async (msg: IVideoChatMessage) => {
-    console.log('handleVideoChatTimeoutCancel');
     if (ignoreMessage(msg)) {
       return;
     }
@@ -799,7 +782,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 挂断 */
   const handleVideoChatHangup = async (msg: IVideoChatMessage) => {
-    console.log('handleVideoChatHangup');
     if (ignoreMessage(msg)) {
       return;
     }
@@ -810,7 +792,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 拒绝 */
   const handleVideoChatReject = async (msg: IVideoChatMessage) => {
-    console.log('handleVideoChatReject');
     if (ignoreMessage(msg)) {
       return;
     }
@@ -821,7 +802,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 超时拒绝 */
   const handleVideoChatTimeoutReject = async (msg: IVideoChatMessage) => {
-    console.log('handleVideoChatTimeoutReject');
     if (ignoreMessage(msg)) {
       return;
     }
@@ -832,7 +812,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /* 音视频切换 */
   const handleVideoChatSwitch = async (msg: IVideoChatMessage) => {
-    console.log('handleVideoChatSwitch');
     if (ignoreMessage(msg)) {
       return;
     }
@@ -844,7 +823,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (ignoreMessage(msg)) {
       return;
     }
-    console.log('handleVideoChatEnterRoom');
     await updateVideoView();
   };
 
@@ -853,7 +831,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (ignoreMessage(msg)) {
       return;
     }
-    console.log('handleVideoChatAddMember');
     await updateVideoView();
   };
 
@@ -1061,10 +1038,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   };
 
   const pluginContainer = usePluginContainer(props, pluginContext);
-
-  console.log('pluginContainer', pluginContainer);
-
-  pluginContainer?.onJoinSuccess?.('23');
 
   useImperativeHandle(ref, () => ({
     ...utilsFn,
