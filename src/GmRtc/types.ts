@@ -1,7 +1,7 @@
 import { Action, AnyAction, Reducer, Dispatch } from 'redux';
 import { EffectsMapObject, SubscriptionsMapObject } from 'dva';
 import React from 'react';
-import { StateType } from './models/index';
+import { StateType } from './models';
 import { IMessageToast } from './MessageToast';
 import { ICreateClientParams, resolveProps } from '@/GmRtc/GmRtcClient';
 import { IVideoChatMessage } from '@/types/VideoChatMessage';
@@ -13,6 +13,8 @@ import {
   RemoteUserInfo,
   RtcError,
 } from 'trtc-js-sdk';
+
+export type Nullable<T> = T | null;
 
 export type BaseReducers<S = any, A extends Action = AnyAction> = {
   [key: string]: Reducer<S, A>;
@@ -32,8 +34,6 @@ export interface IUpdateVideoViewParams {
 }
 
 export interface IGmRtcProps {
-  /**  通话弹窗是否可见 */
-  visible?: boolean;
   style?: React.CSSProperties;
   className?: string;
   /** 插件 */

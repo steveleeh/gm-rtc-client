@@ -8,6 +8,8 @@ import { getImUserInfo, getImVideoConversationRoomInfoVOUsingPOST } from '@/serv
 import { IGmRtc } from '../GmRtc';
 import { BaseModel } from '../types';
 
+export type Nullable<T> = T | null;
+
 export interface IVideoView {
   /* 成员信息 */
   memberInfo?: IMembersInfo;

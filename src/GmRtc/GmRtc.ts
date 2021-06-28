@@ -13,6 +13,8 @@ import TRTC, {
 import { isBoolean, findIndex } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
 
+type Nullable<T> = T | null;
+
 export interface IGmRtcOptions {
   /* 应用标识 */
   sdkAppId: number;

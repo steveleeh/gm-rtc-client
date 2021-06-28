@@ -3,12 +3,12 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useReducer,
   useRef,
   useState,
-  useReducer,
 } from 'react';
 import Draggable from 'react-draggable';
-import { GmRtcClientRef, IGmRtcProps, IUpdateVideoViewParams } from './types';
+import { GmRtcClientRef, IGmRtcProps, IUpdateVideoViewParams, Nullable } from '@/GmRtc/types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
 import { RemoteStreamInfo, RemoteUserInfo, Stream } from 'trtc-js-sdk';
@@ -22,27 +22,27 @@ import { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
 import { GmIcon, GmNotification } from '@wjj/gm-antd';
 import { formatDuration, onExitFullScreen, onFullScreen } from '@/utils';
 import {
-  pullAllBy,
-  isNil,
+  capitalize,
   cloneDeep,
+  filter,
   find,
   findIndex,
+  isNil,
   isString,
-  filter,
-  capitalize,
+  pullAllBy,
 } from 'lodash-es';
 import MessageToast, {
+  EMessageLevel,
   MessageItemParams,
   MessageNoticeFrequency,
-  EMessageLevel,
 } from './MessageToast';
 import GmRtc, { EventHandler, EventTarget, IEventHandler, IGmRtc, RTCEvent } from './GmRtc';
 import { IVideoChatMessage } from '@/types/VideoChatMessage';
 import {
   audioVideoSwitchTypeUsingPOST,
-  getImUserInfo,
   cancelVideoCallUsingPOST,
   createVideoCallUsingPOST,
+  getImUserInfo,
 } from '@/services/index';
 import { CallerUserCardText } from '@/types/ECallerUserCard';
 import { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-call-create-response.model';
@@ -135,6 +135,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   // 提示文案
   const [tipText, setTipsText] = useState<Nullable<string>>(null);
+
   // 消息提示队列
   const [messageToast] = useState(
     new MessageToast({
@@ -839,8 +840,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (getState()?.client) {
       await getState()?.client?.leave?.();
     }
+    // 关闭视图
+    await changeCallState(ECallState.FREE);
+    await pluginContainer?.onLeave?.();
     await initialState();
-    pluginContainer?.onLeave?.();
   };
 
   /* 改变展开状态 */
@@ -1252,11 +1255,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 });
 
 export function resolveProps(props: IGmRtcProps) {
-  let { visible = true, plugins = [] } = props;
+  let { plugins = [] } = props;
 
   return {
     ...props,
     plugins,
-    visible,
   };
 }
