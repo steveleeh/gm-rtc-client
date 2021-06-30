@@ -8,15 +8,15 @@ import {
 export const usePluginContainer = (props: ResolvedProps, context: GmRtcClientPluginContext) => {
   const { plugins: rawPlugins } = props;
 
-  const plugins = rawPlugins.map(usePlugin => usePlugin?.(props, context)).filter(Boolean);
+  const plugins = rawPlugins.map(item => item?.(props, context)).filter(Boolean);
 
   const container: GmRtcClientPluginFunc = {} as GmRtcClientPluginFunc;
-  Object.keys(PluginEvent).map(item => {
+  Object.keys(PluginEvent).forEach(item => {
     const name = PluginEvent[item];
-    function pluginFn() {
+    function pluginFn(...args) {
       for (const plugin of plugins) {
         if (plugin?.[name]) {
-          plugin[name]?.(...arguments);
+          plugin[name]?.(...args);
         }
       }
     }

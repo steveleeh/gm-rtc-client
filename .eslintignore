@@ -1,0 +1,7 @@
+/lambda/
+/src/vendors/**
+/scripts
+/config/
+.history
+!.eslintrc.js
+!.prettierrc.js

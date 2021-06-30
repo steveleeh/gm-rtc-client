@@ -8,18 +8,18 @@ export interface ConnectState {
 }
 
 interface IInitialValue {
-  /* 前缀 */
+  /** 前缀 */
   prefix?: string;
   model: Model;
 }
 
 interface PrivateModelValue<T> {
-  /* model名称 */
+  /** model名称 */
   namespace: string;
-  /* model数据 */
+  /** model数据 */
   data: T;
   dispatch: Dispatch;
-  /* 获取model数据 */
+  /** 获取model数据 */
   getState: () => Nullable<T>;
 }
 

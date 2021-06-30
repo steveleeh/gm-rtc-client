@@ -3,62 +3,62 @@ import { cloneDeep, sortBy, findIndex } from 'lodash-es';
 
 interface IMessageItem {
   id: string;
-  /* 消息等级 */
+  /** 消息等级 */
   level: number;
-  /* 消息内容 */
+  /** 消息内容 */
   content: string | Function;
-  /* 持续时长(ms) 用不过期消息传Infinity */
+  /** 持续时长(ms) 用不过期消息传Infinity */
   time: number;
 }
 
 export type MessageItemParams = Omit<IMessageItem, 'id' | 'time'> & {
-  /* 持续时长(ms) 用不过期消息传Infinity */
+  /** 持续时长(ms) 用不过期消息传Infinity */
   time?: number;
 };
 
 interface MessageToastQueueParams {
-  /* 消息轮询频率(ms) */
+  /** 消息轮询频率(ms) */
   interval?: number;
-  /* 消息队列 */
-  queue?: Array<IMessageItem>;
-  /* 消息通知频率 */
+  /** 消息队列 */
+  queue?: IMessageItem[];
+  /** 消息通知频率 */
   noticeFrequency?: MessageNoticeFrequency;
 }
 
 export enum MessageNoticeFrequency {
-  /* 只通知一次 一个消息被完整消费完才通知 */
+  /** 只通知一次 一个消息被完整消费完才通知 */
   ONCE = 1,
-  /* 总是通知 一个消息被部分消费也通知 */
+  /** 总是通知 一个消息被部分消费也通知 */
   ALWAYS,
-  /* 从不通知 */
+  /** 从不通知 */
   NEVER,
 }
 
-/* 消息等级 */
+/** 消息等级 */
 export enum EMessageLevel {
-  /* 低: 默认长时间展示的消息都是低等级 */
+  /** 低: 默认长时间展示的消息都是低等级 */
   LOW = 1,
-  /* 中等: 普通几秒的消息一般都设为中等级 */
+  /** 中等: 普通几秒的消息一般都设为中等级 */
   MIDDLE,
-  /* 高：非常重要的消息立刻被展示出来，比如进房失败报错信息等 */
+  /** 高：非常重要的消息立刻被展示出来，比如进房失败报错信息等 */
   HIGH,
 }
 
-/* 消息事件 */
+/** 消息事件 */
 export declare type MessageEventListener = (message: IMessageItem) => void;
 
 export interface IMessageToast {
-  /* 析构 */
-  destory: () => void;
-  /* 获取消息 */
+  /** 析构 */
+  destroy: () => void;
+  /** 获取消息 */
   get: (id: string) => Nullable<IMessageItem>;
-  /* 新增消息 */
+  /** 新增消息 */
   update: (id: string, item: Partial<MessageItemParams>) => void;
-  /* 删除消息 */
+  /** 删除消息 */
   hide: (id: string) => void;
-  /* 清空消息 */
+  /** 清空消息 */
   clear: () => void;
-  /* 订阅消息 */
+  /** 订阅消息 */
   subscribe: (listener: MessageEventListener) => void;
 }
 
@@ -66,15 +66,15 @@ export interface IMessageToast {
  * 消息提示
  */
 export default class MessageToast implements IMessageToast {
-  /* 消息队列 */
-  private queue: Array<IMessageItem>;
-  /* 定时器id */
+  /** 消息队列 */
+  private queue: IMessageItem[];
+  /** 定时器id */
   private timeoutId: NodeJS.Timeout;
-  /* 消息轮询频率(ms) */
+  /** 消息轮询频率(ms) */
   private interval: number;
-  /* 消息通知频率 */
+  /** 消息通知频率 */
   private noticeFrequency: MessageNoticeFrequency;
-  /* 消息回调事件 */
+  /** 消息回调事件 */
   private eventListener: Nullable<MessageEventListener>;
 
   constructor(params?: MessageToastQueueParams) {
@@ -87,12 +87,12 @@ export default class MessageToast implements IMessageToast {
     this.eventListener = null;
   }
 
-  /* 析构 */
-  public destory(): void {
+  /** 析构 */
+  public destroy(): void {
     clearTimeout(this.timeoutId);
   }
 
-  /* 消费可用消息 */
+  /** 消费可用消息 */
   private consumeMessage() {
     // 消费级别最高的消息
     const firstNode = cloneDeep(sortBy(this.queue, item => -item.level)[0]);
@@ -130,14 +130,14 @@ export default class MessageToast implements IMessageToast {
     }
   }
 
-  /* 通知消费者 */
+  /** 通知消费者 */
   private noticeConsumer(message: IMessageItem) {
     if (this.eventListener) {
       this.eventListener(message);
     }
   }
 
-  /* 获取消息 */
+  /** 获取消息 */
   public get(id: string): Nullable<IMessageItem> {
     const messageIndex = findIndex(this.queue, o => o.id === id);
     if (messageIndex === -1) {
@@ -146,7 +146,7 @@ export default class MessageToast implements IMessageToast {
     return this.queue[messageIndex];
   }
 
-  /* 新增消息 */
+  /** 新增消息 */
   public show(item: MessageItemParams): string {
     const id = uuid();
     this.queue.unshift({
@@ -158,7 +158,7 @@ export default class MessageToast implements IMessageToast {
     return id;
   }
 
-  /* 新增消息 */
+  /** 新增消息 */
   public update(id: string, item: Partial<MessageItemParams>) {
     const messageIndex = findIndex(this.queue, o => o.id === id);
     if (messageIndex === -1) {
@@ -173,7 +173,7 @@ export default class MessageToast implements IMessageToast {
     };
   }
 
-  /* 删除消息 */
+  /** 删除消息 */
   public hide(id: string) {
     const messageIndex = findIndex(this.queue, o => o.id === id);
     if (messageIndex === -1) {
@@ -182,12 +182,12 @@ export default class MessageToast implements IMessageToast {
     this.queue.splice(messageIndex, 1);
   }
 
-  /* 清空消息 */
+  /** 清空消息 */
   public clear() {
     this.queue = [];
   }
 
-  /* 订阅消息 */
+  /** 订阅消息 */
   public subscribe(listener: MessageEventListener): void {
     this.eventListener = listener;
   }

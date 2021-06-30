@@ -1,11 +1,11 @@
-import { Action, AnyAction, Reducer, Dispatch } from 'redux';
-import { EffectsMapObject, SubscriptionsMapObject } from 'dva';
-import React from 'react';
-import { StateType } from './models';
-import { IMessageToast } from './MessageToast';
-import { ICreateClientParams, resolveProps } from '@/GmRtc/GmRtcClient';
-import { IVideoChatMessage } from '@/types/VideoChatMessage';
-import {
+import type { Action, AnyAction, Reducer, Dispatch } from 'redux';
+import type { EffectsMapObject, SubscriptionsMapObject } from 'dva';
+import type React from 'react';
+import type { StateType } from './models';
+import type { IMessageToast } from './MessageToast';
+import type { ICreateClientParams, resolveProps } from '@/GmRtc/GmRtcClient';
+import type { IVideoChatMessage } from '@/types/VideoChatMessage';
+import type {
   Callback,
   ConnectionState,
   NetworkQuality,
@@ -16,9 +16,7 @@ import {
 
 export type Nullable<T> = T | null;
 
-export type BaseReducers<S = any, A extends Action = AnyAction> = {
-  [key: string]: Reducer<S, A>;
-};
+export type BaseReducers<S = any, A extends Action = AnyAction> = Record<string, Reducer<S, A>>;
 
 export interface BaseModel<S = any, A extends Action = AnyAction> {
   namespace: string;
@@ -33,8 +31,15 @@ export interface IUpdateVideoViewParams {
   userId?: string;
 }
 
+export interface IDevice {
+  microphone: boolean;
+  camera: boolean;
+}
+
 export interface IGmRtcProps {
   style?: React.CSSProperties;
+  /** 检查设备 */
+  checkDevice?: boolean | IDevice;
   className?: string;
   /** 插件 */
   plugins: GmRtcClientPlugin[];
@@ -48,6 +53,26 @@ export enum PluginEvent {
   LEAVE = 'onLeave',
   /** 计时 */
   TICK = 'onTick',
+  /** 创建通话消息 */
+  CREATE_MESSAGE = 'onCreateMessage',
+  /** 邀请通话消息 */
+  INVITE_MESSAGE = 'onInviteMessage',
+  /** 取消通话消息 */
+  CANCEL_MESSAGE = 'onCancelMessage',
+  /** 超时取消通话消息 */
+  TIMEOUT_CANCEL_MESSAGE = 'onTimeoutCancelMessage',
+  /** 挂断通话消息 */
+  HANG_UP_MESSAGE = 'onHangUpMessage',
+  /** 拒绝通话消息 */
+  REJECT_MESSAGE = 'onRejectMessage',
+  /** 超时拒绝通话消息 */
+  TIMEOUT_REJECT_MESSAGE = 'onTimeoutRejectMessage',
+  /** 视频和语音切换消息 */
+  SWITCH_MESSAGE = 'onSwitchMessage',
+  /** 进入房间消息 */
+  ENTER_ROOM_MESSAGE = 'onEnterRoomMessage',
+  /** 新增成员消息 */
+  ADD_MEMBER_MESSAGE = 'onAddMemberMessage',
   /** 进房成功 */
   JOIN_SUCCESS = 'onJoinSuccess',
   /** 进房失败 */
@@ -90,6 +115,8 @@ export enum PluginEvent {
   CONNECTION_STATE_CHANGED = 'onConnectionStateChanged',
   /** 网络质量统计数据事件，进房后开始统计，每两秒触发一次，包括上行（uplinkNetworkQuality）和下行（downlinkNetworkQuality）的质量统计数据。 */
   NETWORK_QUALITY = 'onNetworkQuality',
+  /** 网络断开事件 */
+  BadNetworkQuality = 'onBadNetworkQuality',
   /** 本地屏幕分享停止事件通知，仅对本地屏幕分享流有效。 */
   SCREEN_SHARING_STOPPED = 'onScreenSharingStopped',
 }
@@ -98,6 +125,16 @@ export interface PluginRtcEventMap {
   [PluginEvent.INITIAL]: void;
   [PluginEvent.LEAVE]: void;
   [PluginEvent.TICK]: number;
+  [PluginEvent.CREATE_MESSAGE]: ICreateClientParams;
+  [PluginEvent.INVITE_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.CANCEL_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.TIMEOUT_CANCEL_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.HANG_UP_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.REJECT_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.TIMEOUT_REJECT_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.SWITCH_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.ENTER_ROOM_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.ADD_MEMBER_MESSAGE]: IVideoChatMessage;
   [PluginEvent.JOIN_SUCCESS]: any;
   [PluginEvent.JOIN_ERROR]: any;
   [PluginEvent.INITIALIZE_SUCCESS]: any;
@@ -120,6 +157,7 @@ export interface PluginRtcEventMap {
   [PluginEvent.UNMUTE_VIDEO]: RemoteUserInfo;
   [PluginEvent.CLIENT_BANNED]: RtcError;
   [PluginEvent.NETWORK_QUALITY]: NetworkQuality;
+  [PluginEvent.BadNetworkQuality]: void;
   [PluginEvent.ERROR]: RtcError;
   [PluginEvent.PLAYER_STATE_CHANGED]: {
     type: string;
@@ -138,7 +176,9 @@ export interface GmRtcClientRef {
   /** 获取消息提示实例 */
   messageToast: IMessageToast;
   /** 更新视频视图 */
-  updateVideoView(params?: IUpdateVideoViewParams): Promise<void>;
+  updateVideoView: (params?: IUpdateVideoViewParams) => Promise<void>;
+  /** 离开事件 */
+  onLeave: () => Promise<void>;
   /** 创建通话消息 */
   onCreateMessage: (params: ICreateClientParams) => Promise<void>;
   /** 邀请通话消息 */
@@ -163,7 +203,7 @@ export interface GmRtcClientRef {
 
 export interface GmRtcClientPluginContext extends GmRtcClientRef {
   /** 内部使用 允许给组件的 ref 上添加一些对外暴露的属性 */
-  addImperativeHandle(handlers: object): void;
+  addImperativeHandle: (handlers: object) => void;
   /** 强制组件重渲染 */
   forceUpdate: React.DispatchWithoutAction;
 }
