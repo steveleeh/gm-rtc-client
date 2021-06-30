@@ -76,6 +76,8 @@ interface ICreateRtcClientParams {
   roomId: number;
 }
 
+const prefix = 'gm-rtc';
+
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -103,7 +105,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     if (videoCallState === ECallState.ON_CALL) {
-      GmNotification.warn(EMessageText.USER_TIMEOUT_REJECT);
+      GmNotification.warn(EMessageText.SELF_TIMEOUT_CANCEL);
       await leave(ECancelEventType.TIMEOUT_CANCEL);
     }
   };
@@ -811,7 +813,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onCancelMessage?.(msg);
     GmNotification.warn(EMessageText.USER_CANCEL);
-    await leave(ECancelEventType.CANCEL);
+    if (msg.isKeyMember === EKeyMember.MAIN) {
+      await leave(ECancelEventType.CANCEL);
+    }
   };
 
   /** 超时取消 */
@@ -821,7 +825,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onTimeoutCancelMessage?.(msg);
     GmNotification.warn(EMessageText.USER_CANCEL);
-    await leave(ECancelEventType.CANCEL);
+    if (msg.isKeyMember === EKeyMember.MAIN) {
+      await leave(ECancelEventType.CANCEL);
+    }
   };
 
   /** 挂断 */
@@ -831,7 +837,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onHangUpMessage?.(msg);
     GmNotification.warn(EMessageText.USER_HANG_UP);
-    await leave(ECancelEventType.CANCEL);
+    if (msg.isKeyMember === EKeyMember.MAIN) {
+      await leave(ECancelEventType.CANCEL);
+    }
   };
 
   /** 拒绝 */
@@ -841,7 +849,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onRejectMessage?.(msg);
     GmNotification.warn(EMessageText.USER_REJECT);
-    await leave(ECancelEventType.CANCEL);
+    if (msg.isKeyMember === EKeyMember.MAIN) {
+      await leave(ECancelEventType.CANCEL);
+    }
   };
 
   /** 超时拒绝 */
@@ -851,7 +861,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onTimeoutRejectMessage?.(msg);
     GmNotification.warn(EMessageText.USER_CANCEL);
-    await leave(ECancelEventType.CANCEL);
+    if (msg.isKeyMember === EKeyMember.MAIN) {
+      await leave(ECancelEventType.CANCEL);
+    }
   };
 
   /** 音视频切换 */
@@ -872,7 +884,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await updateVideoView();
   };
 
-  /** 新增成员 */
+  /*
+   * 新增成员 */
   const handleVideoChatAddMember = async (msg: IVideoChatMessage) => {
     if (ignoreMessage(msg)) {
       return;
@@ -1175,9 +1188,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /**
    * 渲染呼叫信息
    * @param memberInfo 用户信息
-   * @param callText 呼叫文案
    */
-  const renderUserInfo = (memberInfo?: IMembersInfo | undefined, callText?: React.ReactNode) => (
+  const renderUserInfo = (memberInfo?: IMembersInfo | undefined) => (
     <div className={styles.userInfo}>
       <div
         className={styles.userInfoAvatar}
@@ -1185,7 +1197,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       />
       <div className={styles.userInfoText}>
         <div className={styles.userInfoName}>{renderName(memberInfo)}</div>
-        <div className={styles.userInfoTips}>{callText}</div>
+        <div className={classNames(styles.userInfoTips, `${prefix}__user-info__tips`)} />
       </div>
     </div>
   );
@@ -1200,9 +1212,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染呼叫用户中
   const renderOnCall = (
     <React.Fragment>
-      <div className={styles.callContainer}>
-        {renderUserInfo(mainVideoView?.memberInfo, `正在等待对方接受邀请…`)}
-      </div>
+      <div className={styles.callContainer}>{renderUserInfo(mainVideoView?.memberInfo)}</div>
     </React.Fragment>
   );
 

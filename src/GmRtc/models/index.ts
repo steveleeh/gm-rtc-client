@@ -2,11 +2,13 @@ import { find, pick } from 'lodash-es';
 import type { Stream } from 'trtc-js-sdk';
 import { ECallState } from '@/types/ECallState';
 import type { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
+import type { ImVideoConversationRoomInfoVO } from '@wjj/gm-type/dist/models/saas';
 import { ECallerUserCard } from '@/types/ECallerUserCard';
 import { ECallType } from '@/types/ECallType';
 import { getImUserInfo, getImVideoConversationRoomInfoVOUsingPOST } from '@/services';
 import type { IGmRtc } from '../GmRtc';
 import type { BaseModel } from '../types';
+import { EMemberStatus } from '@/types/EMemberStatus';
 
 export type Nullable<T> = T | null;
 
@@ -128,17 +130,25 @@ const Model: BaseModel<StateType> = {
         console.warn('房间号不能为空');
         return;
       }
-      const res = yield call(getImVideoConversationRoomInfoVOUsingPOST, {
-        roomId: payload.roomId,
-        memberStatusCol: payload.memberStatusCol,
-      });
+      const res: ImVideoConversationRoomInfoVO = yield call(
+        getImVideoConversationRoomInfoVOUsingPOST,
+        {
+          roomId: payload.roomId,
+          memberStatusCol: payload.memberStatusCol,
+        },
+      );
       const userId = yield select((state: any) => state.imchat.userId);
       if (!res || !Array.isArray(res.roomMembersInfo)) {
         return;
       }
       const selfMemberInfo = find(res.roomMembersInfo, o => o.memberAccount === userId);
+      const filterKeys = new Set([
+        EMemberStatus.WAIT_CALL,
+        EMemberStatus.BE_CALLING,
+        EMemberStatus.CALLING,
+      ]);
       const params: any = {
-        members: res.roomMembersInfo,
+        members: (res.roomMembersInfo || []).filter(item => filterKeys.has(item.memberStatus)),
       };
       if (selfMemberInfo) {
         params.selfMember = selfMemberInfo;
