@@ -1,7 +1,7 @@
 {
   "private": false,
   "name": "@wjj/gm-rtc-client",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "scripts": {
     "start": "dumi dev",
     "docs:build": "dumi build",

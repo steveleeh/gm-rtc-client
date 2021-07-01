@@ -51,6 +51,7 @@ import { CallerUserCardText } from '@/types/ECallerUserCard';
 import type { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-call-create-response.model';
 import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
+import { getCameras, getMicrophones } from 'trtc-js-sdk';
 
 interface IBtnItem {
   name: string;
@@ -87,6 +88,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     prefix: 'videochat',
     model: Model,
   });
+
+  const [otherInfoPluginElement, setOtherInfoPluginElement] = useState<React.ReactNode>(null);
 
   /**
    * 获取倒计时时长
@@ -182,6 +185,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       time: Infinity,
       ...params,
     } as MessageItemParams);
+  };
+
+  /** 渲染其他信息 */
+  const renderOtherInfoPlugin = (node: React.ReactNode) => {
+    setOtherInfoPluginElement(node);
   };
 
   /** 通过userId获取流 */
@@ -338,7 +346,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   };
 
   /** 初始化成功 */
-  const handleInitializeSuccess = () => {};
+  const handleInitializeSuccess = () => {
+    const cameras = getCameras();
+    const microphones = getMicrophones();
+
+    console.log('cameras', cameras);
+    console.log('microphones', microphones);
+  };
 
   /** 初始化失败事件 */
   const handleInitializeError = async (error: DOMException) => {
@@ -607,6 +621,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       console.warn('call state repeat has been ignored');
       return;
     }
+    await pluginContainer?.onChangeState?.(state);
     await onChangeCallStateModel(state);
     // 设置为拨打用户中
     if (state === ECallState.ON_CALL) {
@@ -776,7 +791,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (!isNil(getState()?.roomId)) {
       return;
     }
-    await pluginContainer?.onInviteMessage?.(msg);
     let { extend } = msg;
     try {
       extend = JSON.parse(extend);
@@ -794,6 +808,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         extend,
       },
     });
+    await pluginContainer?.onInviteMessage?.(msg);
     await createRtcClient({
       roomId: msg.roomId,
     });
@@ -1113,6 +1128,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const pluginContext = {
     addImperativeHandle,
     forceUpdate,
+    renderOtherInfoPlugin,
     ...utilsFn,
   };
 
@@ -1197,7 +1213,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       />
       <div className={styles.userInfoText}>
         <div className={styles.userInfoName}>{renderName(memberInfo)}</div>
-        <div className={classNames(styles.userInfoTips, `${prefix}__user-info__tips`)} />
+        <div id={`${prefix}__user-info__tips`} className={styles.userInfoTips}>
+          {otherInfoPluginElement}
+        </div>
       </div>
     </div>
   );

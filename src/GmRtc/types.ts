@@ -53,6 +53,8 @@ export enum PluginEvent {
   LEAVE = 'onLeave',
   /** 计时 */
   TICK = 'onTick',
+  /** 计时 */
+  CHANGE_STATE = 'onChangeState',
   /** 创建通话消息 */
   CREATE_MESSAGE = 'onCreateMessage',
   /** 邀请通话消息 */
@@ -125,6 +127,7 @@ export interface PluginRtcEventMap {
   [PluginEvent.INITIAL]: void;
   [PluginEvent.LEAVE]: void;
   [PluginEvent.TICK]: number;
+  [PluginEvent.CHANGE_STATE]: number;
   [PluginEvent.CREATE_MESSAGE]: ICreateClientParams;
   [PluginEvent.INVITE_MESSAGE]: IVideoChatMessage;
   [PluginEvent.CANCEL_MESSAGE]: IVideoChatMessage;
@@ -167,6 +170,8 @@ export interface PluginRtcEventMap {
   [PluginEvent.SCREEN_SHARING_STOPPED]: undefined;
 }
 
+declare type messageEvent = (params: IVideoChatMessage) => Promise<void>;
+
 export interface GmRtcClientRef {
   /** 获取namespace */
   namespace: string;
@@ -182,23 +187,23 @@ export interface GmRtcClientRef {
   /** 创建通话消息 */
   onCreateMessage: (params: ICreateClientParams) => Promise<void>;
   /** 邀请通话消息 */
-  onInviteMessage: (params: IVideoChatMessage) => Promise<void>;
+  onInviteMessage: messageEvent;
   /** 取消通话消息 */
-  onCancelMessage: (params: IVideoChatMessage) => Promise<void>;
+  onCancelMessage: messageEvent;
   /** 超时取消通话消息 */
-  onTimeoutCancelMessage: (params: IVideoChatMessage) => Promise<void>;
+  onTimeoutCancelMessage: messageEvent;
   /** 挂断通话消息 */
-  onHangUpMessage: (params: IVideoChatMessage) => Promise<void>;
+  onHangUpMessage: messageEvent;
   /** 拒绝通话消息 */
-  onRejectMessage: (params: IVideoChatMessage) => Promise<void>;
+  onRejectMessage: messageEvent;
   /** 超时拒绝通话消息 */
-  onTimeoutRejectMessage: (params: IVideoChatMessage) => Promise<void>;
+  onTimeoutRejectMessage: messageEvent;
   /** 视频和语音切换消息 */
-  onSwitchMessage: (params: IVideoChatMessage) => Promise<void>;
+  onSwitchMessage: messageEvent;
   /** 进入房间消息 */
-  onEnterRoomMessage: (params: IVideoChatMessage) => Promise<void>;
+  onEnterRoomMessage: messageEvent;
   /** 新增成员消息 */
-  onAddMemberMessage: (params: IVideoChatMessage) => Promise<void>;
+  onAddMemberMessage: messageEvent;
 }
 
 export interface GmRtcClientPluginContext extends GmRtcClientRef {
@@ -206,6 +211,8 @@ export interface GmRtcClientPluginContext extends GmRtcClientRef {
   addImperativeHandle: (handlers: object) => void;
   /** 强制组件重渲染 */
   forceUpdate: React.DispatchWithoutAction;
+  /** 渲染其他信息 */
+  renderOtherInfoPlugin: (node: React.ReactNode) => void;
 }
 
 export type GmRtcClientPluginFunc = {
