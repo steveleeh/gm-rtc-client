@@ -52,6 +52,7 @@ import type { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-cal
 import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
 import { getCameras, getMicrophones } from 'trtc-js-sdk';
+import { ECallAudio } from '@/types/ECallAudio';
 
 interface IBtnItem {
   name: string;
@@ -443,10 +444,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         }）离开房间`,
         level: EMessageLevel.MIDDLE,
       });
-    }
-    // 主要人离开房间
-    if (memberInfo.isKeyMember === EKeyMember.MAIN) {
-      await leave(ECancelEventType.CANCEL);
+      // 主要人离开房间
+      if (memberInfo.isKeyMember === EKeyMember.MAIN) {
+        await leave(ECancelEventType.CANCEL);
+      }
     }
     await updateVideoView();
   };
@@ -544,6 +545,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       messageToast.clear();
     }
     setTipsText(null);
+    setOtherInfoPluginElement(null);
     videoTimeToastId.current = null;
     await dispatch({
       type: `${namespace}/clear`,
@@ -648,7 +650,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       console.log('ECallState.CALLING');
       setCallTargetDate(undefined);
       // fix: 小康没有正常进房或推流的情况，记录超时挂断
-      if ((getState()?.client.getRemoteStream() || []).length === 0) {
+      if ((getState()?.client?.getRemoteStream?.() || []).length === 0) {
         setStreamTargetDate(getCountdownDate(15000));
       }
       messageToast.show({
@@ -736,6 +738,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         conversationId: res.conversationId,
         callType: params.callType,
         videoType: params.callType,
+        userCard: params.callerUserCard,
       },
     });
     await changeCallState(ECallState.ON_CALL);
@@ -1220,10 +1223,18 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     </div>
   );
 
+  const renderAudio = useCallback((url: string) => {
+    return (
+      // @ts-ignore
+      <audio src={url} loop autoplay="autoplay" />
+    );
+  }, []);
+
   // 渲染被呼叫
   const renderBeCall = (
     <React.Fragment>
       <div className={styles.callContainer}>{renderUserInfo(mainVideoView?.memberInfo)}</div>
+      {renderAudio(ECallAudio.BE_CALLED)}
     </React.Fragment>
   );
 
@@ -1231,6 +1242,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const renderOnCall = (
     <React.Fragment>
       <div className={styles.callContainer}>{renderUserInfo(mainVideoView?.memberInfo)}</div>
+      {renderAudio(ECallAudio.ON_CALL)}
     </React.Fragment>
   );
 

@@ -44,7 +44,7 @@ export interface StateType {
   /**  选中的用户 */
   mainMember: Nullable<IMembersInfo>;
   /**  当前用户主叫类型 */
-  userCard: ECallerUserCard;
+  userCard: Nullable<ECallerUserCard>;
   /**  拨打模式：（创建音视频时候定义的，和服务端一致） */
   callType: ECallType;
   /**  页面视频模式 */
@@ -81,7 +81,7 @@ const initialState = (): StateType => ({
   selfMember: null,
   selectedMember: null,
   mainMember: null,
-  userCard: ECallerUserCard.HEALTH_STEWARD,
+  userCard: null,
   callType: ECallType.VIDEO,
   videoType: ECallType.VIDEO,
   fullScreen: false,
