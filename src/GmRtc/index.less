@@ -21,9 +21,10 @@
       z-index: 99;
       background-image: none;
     }
-    //div[id^='player'] {
-    //  background-color: transparent !important;
-    //}
+
+    div[id^='player'] {
+      background-color: transparent !important;
+    }
   }
 }
 
@@ -100,7 +101,16 @@
   display: flex;
 }
 
-.userInfoAvatar {
+.userInfoAvatarCenter {
+  position: absolute;
+  top: calc(50% - 48px);
+  left: calc(50% - 32.5px);
+  width: 65px;
+  height: 65px;
+  background-size: cover;
+}
+
+.userInfoAvatarLeftTop {
   width: 40px;
   height: 40px;
   margin-right: 10px;

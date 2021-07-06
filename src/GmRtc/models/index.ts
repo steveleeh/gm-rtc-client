@@ -3,7 +3,7 @@ import type { Stream } from 'trtc-js-sdk';
 import { ECallState } from '@/types/ECallState';
 import type { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
 import type { ImVideoConversationRoomInfoVO } from '@wjj/gm-type/dist/models/saas';
-import { ECallerUserCard } from '@/types/ECallerUserCard';
+import type { ECallerUserCard } from '@/types/ECallerUserCard';
 import { ECallType } from '@/types/ECallType';
 import { getImUserInfo, getImVideoConversationRoomInfoVOUsingPOST } from '@/services';
 import type { IGmRtc } from '../GmRtc';
@@ -166,10 +166,15 @@ const Model: BaseModel<StateType> = {
         ...payload,
       };
     },
-    clear(state) {
+    clear() {
       return {
         ...initialState(),
-        ...pick(state, ['sdkAppId', 'userId', 'userSig']),
+      };
+    },
+    reset(state) {
+      return {
+        ...initialState(),
+        ...pick(state, ['sdkAppId', 'userId', 'userSig', 'userCard']),
       };
     },
   },

@@ -1,15 +1,15 @@
-import TRTC, {
+import type {
   Client,
   LocalStream,
   RemoteStream,
   Stream,
-  createStream,
   ClientEventMap,
   StreamEventMap,
   RtcError,
   Callback,
   RemoteUserInfo,
 } from 'trtc-js-sdk';
+import TRTC, { createStream } from 'trtc-js-sdk';
 import { isBoolean, findIndex } from 'lodash-es';
 import { v4 as uuid } from 'uuid';
 
@@ -525,7 +525,7 @@ class GmRtc implements IGmRtc {
      * @link https://web.sdk.qcloud.com/trtc/webrtc/doc/zh-cn/module-StreamEvent.html#.ERROR
      */
     this._client.on(RTCEvent.ERROR, err => {
-      console.error(err);
+      console.error('RTCEvent.ERROR', err);
       this.executeEventFn(RTCEvent.ERROR, err);
     });
 

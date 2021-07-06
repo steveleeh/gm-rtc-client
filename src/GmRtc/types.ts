@@ -32,14 +32,16 @@ export interface IUpdateVideoViewParams {
 }
 
 export interface IDevice {
+  /** 麦克风 */
   microphone: boolean;
+  /** 摄像头 */
   camera: boolean;
 }
 
 export interface IGmRtcProps {
   style?: React.CSSProperties;
   /** 检查设备 */
-  checkDevice?: boolean | IDevice;
+  device?: boolean | IDevice;
   className?: string;
   /** 插件 */
   plugins: GmRtcClientPlugin[];

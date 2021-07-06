@@ -7,22 +7,21 @@ export interface RegisterPluginOption {
   userId?: string;
   /** 用户签名 */
   userSig?: string;
+  /** 当前用户主叫类型 */
+  userCard?: number;
 }
 
-export interface useRegisterPluginFn {
-  (options?: RegisterPluginOption): GmRtcClientPlugin;
-}
-
-export const useRegisterPlugin: useRegisterPluginFn = (options = {}) => {
+export const useRegisterPlugin = (options?: RegisterPluginOption): GmRtcClientPlugin => {
   return (props, context) => {
     const onInitial = async () => {
-      if (context.dispatch && context.namespace && context.getState) {
+      if (context.dispatch && context.namespace && context.getState && options) {
         await context.dispatch({
           type: `${context.namespace}/setState`,
           payload: {
             sdkAppId: options.sdkAppId || context.getState()?.sdkAppId,
             userId: options.userId || context.getState()?.userId,
             userSig: options.userSig || context.getState()?.userSig,
+            userCard: options.userCard || context.getState()?.userCard,
           },
         });
       }

@@ -28,5 +28,6 @@ module.exports = {
     'no-await-in-loop': 'off',
     'react-hooks/exhaustive-deps': 'off',
     'no-async-promise-executor': 'off',
+    'max-classes-per-file': 'off',
   },
 };

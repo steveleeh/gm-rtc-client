@@ -9,7 +9,13 @@ import React, {
 } from 'react';
 import { useCountDown, useLockFn } from 'ahooks';
 import Draggable from 'react-draggable';
-import type { GmRtcClientRef, IGmRtcProps, IUpdateVideoViewParams, Nullable } from '@/GmRtc/types';
+import type {
+  GmRtcClientRef,
+  IDevice,
+  IGmRtcProps,
+  IUpdateVideoViewParams,
+  Nullable,
+} from '@/GmRtc/types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
 import type { RemoteStreamInfo, RemoteUserInfo, Stream } from 'trtc-js-sdk';
@@ -83,7 +89,7 @@ const prefix = 'gm-rtc';
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { style, className, checkDevice } = props;
+  const { style, className, device } = props;
 
   const { namespace, data, dispatch, getState } = UsePrivateModel<StateType | null>({
     prefix: 'videochat',
@@ -91,6 +97,38 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   });
 
   const [otherInfoPluginElement, setOtherInfoPluginElement] = useState<React.ReactNode>(null);
+
+  /* 检查设备情况 */
+  const checkDevice = (params: IDevice): Promise<void> =>
+    new Promise(async (resolve, reject) => {
+      if (params?.camera) {
+        try {
+          const cameras = await getCameras();
+          console.log('cameras', cameras);
+          if (!Array.isArray(cameras) || cameras.length === 0) {
+            reject();
+            return;
+          }
+        } catch (e) {
+          reject(e);
+          return;
+        }
+      }
+      if (params?.microphone) {
+        try {
+          const microphones = await getMicrophones();
+          console.log('microphones', microphones);
+          if (!Array.isArray(microphones) || microphones.length === 0) {
+            reject();
+            return;
+          }
+        } catch (e) {
+          reject(e);
+          return;
+        }
+      }
+      resolve();
+    });
 
   /**
    * 获取倒计时时长
@@ -357,6 +395,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 初始化失败事件 */
   const handleInitializeError = async (error: DOMException) => {
+    console.log('handleInitializeError', error, error.name);
     switch (error.name) {
       case 'NotReadableError':
         GmNotification.error(
@@ -380,7 +419,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         );
         break;
       default:
-        console.error('handleInitializeError', error);
     }
     await leave(ECancelEventType.CANCEL);
   };
@@ -548,7 +586,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     setOtherInfoPluginElement(null);
     videoTimeToastId.current = null;
     await dispatch({
-      type: `${namespace}/clear`,
+      type: `${namespace}/reset`,
     });
   };
 
@@ -721,6 +759,18 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       GmNotification.error('存在进行中的视频通话，请先挂断');
       return;
     }
+    try {
+      await checkDevice({
+        microphone: true,
+        camera: params.callType === ECallType.VIDEO,
+      });
+    } catch (e) {
+      GmNotification.error(
+        '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
+      );
+      console.warn(e);
+      return;
+    }
     console.log('handleVideoChatCreate');
     await pluginContainer?.onCreateMessage?.(params);
     let res = {} as IImCallCreateResponse;
@@ -812,6 +862,19 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       },
     });
     await pluginContainer?.onInviteMessage?.(msg);
+    try {
+      await checkDevice({
+        microphone: true,
+        camera: true,
+      });
+    } catch (e) {
+      GmNotification.error(
+        '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
+      );
+      console.warn(e);
+      leave(ECancelEventType.CANCEL);
+      return;
+    }
     await createRtcClient({
       roomId: msg.roomId,
     });
@@ -1170,7 +1233,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     </div>
   );
 
-  const renderName = (userInfo: IMembersInfo | undefined, alias?: string) => (
+  const renderName = (userInfo?: IMembersInfo | undefined, alias?: string) => (
     <div>
       <span title={alias || userInfo?.nickname}>{alias || userInfo?.nickname}</span>
       {!isNil(userInfo?.userCard) && (
@@ -1206,16 +1269,24 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /**
    * 渲染呼叫信息
-   * @param memberInfo 用户信息
+   * @param videoView
    */
-  const renderUserInfo = (memberInfo?: IMembersInfo | undefined) => (
+  const renderUserInfo = (videoView?: IVideoView) => (
     <div className={styles.userInfo}>
-      <div
-        className={styles.userInfoAvatar}
-        style={{ backgroundImage: `url("${EAvatarUrl[memberInfo?.userCard]}")` }}
-      />
+      {!isNil(videoView?.stream?.getVideoTrack?.()) && (
+        <div
+          className={styles.userInfoAvatarLeftTop}
+          style={{ backgroundImage: `url("${EAvatarUrl[videoView?.memberInfo?.userCard]}")` }}
+        />
+      )}
+      {isNil(videoView?.stream?.getVideoTrack?.()) && (
+        <div
+          className={styles.userInfoAvatarCenter}
+          style={{ backgroundImage: `url("${EAvatarUrl[videoView?.memberInfo?.userCard]}")` }}
+        />
+      )}
       <div className={styles.userInfoText}>
-        <div className={styles.userInfoName}>{renderName(memberInfo)}</div>
+        <div className={styles.userInfoName}>{renderName(videoView?.memberInfo)}</div>
         <div id={`${prefix}__user-info__tips`} className={styles.userInfoTips}>
           {otherInfoPluginElement}
         </div>
@@ -1233,7 +1304,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染被呼叫
   const renderBeCall = (
     <React.Fragment>
-      <div className={styles.callContainer}>{renderUserInfo(mainVideoView?.memberInfo)}</div>
+      <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
       {renderAudio(ECallAudio.BE_CALLED)}
     </React.Fragment>
   );
@@ -1241,7 +1312,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染呼叫用户中
   const renderOnCall = (
     <React.Fragment>
-      <div className={styles.callContainer}>{renderUserInfo(mainVideoView?.memberInfo)}</div>
+      <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
       {renderAudio(ECallAudio.ON_CALL)}
     </React.Fragment>
   );
@@ -1249,7 +1320,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染通话中
   const renderCalling = (
     <React.Fragment>
-      <div className={styles.callContainer}>{renderUserInfo(mainVideoView?.memberInfo)}</div>
+      <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
     </React.Fragment>
   );
 
@@ -1359,11 +1430,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 });
 
 export function resolveProps(props: IGmRtcProps) {
-  const { plugins = [], checkDevice = true } = props;
+  const { plugins = [], device = true } = props;
 
   return {
     ...props,
-    checkDevice,
+    device,
     plugins,
   };
 }
