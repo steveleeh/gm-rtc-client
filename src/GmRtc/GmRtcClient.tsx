@@ -59,6 +59,7 @@ import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
 import { getCameras, getMicrophones } from 'trtc-js-sdk';
 import { ECallAudio } from '@/types/ECallAudio';
+import { EMemberStatus } from '@/types/EMemberStatus';
 
 interface IBtnItem {
   name: string;
@@ -104,7 +105,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       if (params?.camera) {
         try {
           const cameras = await getCameras();
-          console.log('cameras', cameras);
           if (!Array.isArray(cameras) || cameras.length === 0) {
             reject();
             return;
@@ -117,7 +117,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       if (params?.microphone) {
         try {
           const microphones = await getMicrophones();
-          console.log('microphones', microphones);
           if (!Array.isArray(microphones) || microphones.length === 0) {
             reject();
             return;
@@ -139,7 +138,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 倒计时结束 */
   const onCallEnd = async () => {
-    console.log('onCallEnd');
     const videoCallState = getState()?.callState;
     if (videoCallState === ECallState.BE_CALLED) {
       GmNotification.warn(EMessageText.USER_CANCEL);
@@ -154,7 +152,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 倒计时结束 */
   const onStreamEnd = async () => {
-    console.log('onStreamEnd');
     GmNotification.warn(EMessageText.USER_CANCEL);
     await leave(ECancelEventType.CANCEL);
   };
@@ -366,6 +363,20 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         roomId: roomId || getState()?.roomId,
       },
     });
+    const selfMem = getState()?.selfMember;
+    const originMembers = getState()?.originMembers;
+    const filterKeys = new Set([
+      EMemberStatus.WAIT_CALL,
+      EMemberStatus.BE_CALLING,
+      EMemberStatus.CALLING,
+    ]);
+    // 是否房间内的用户都离开了
+    const isUserLeave = (originMembers || [])
+      .filter(item => item.memberAccount !== selfMem.memberAccount)
+      .every(item => !filterKeys.has(item.memberStatus));
+    if (isUserLeave) {
+      await leave(ECancelEventType.HANG_UP);
+    }
     await updateMainVideoView(params);
     await updateMinorVideoViews();
   };
@@ -385,17 +396,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   };
 
   /** 初始化成功 */
-  const handleInitializeSuccess = () => {
-    const cameras = getCameras();
-    const microphones = getMicrophones();
-
-    console.log('cameras', cameras);
-    console.log('microphones', microphones);
-  };
+  const handleInitializeSuccess = () => {};
 
   /** 初始化失败事件 */
   const handleInitializeError = async (error: DOMException) => {
-    console.log('handleInitializeError', error, error.name);
+    console.error('handleInitializeError', error, error.name);
     switch (error.name) {
       case 'NotReadableError':
         GmNotification.error(
@@ -982,6 +987,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * （2）需要处理catch,防止网络中断导致后续函数不执行；
    */
   const leave = useLockFn(async (eventType?: ECancelEventType) => {
+    // 防止资源重复销毁
+    if (!getState()?.roomId) {
+      return;
+    }
     if (isNumber(eventType)) {
       try {
         await cancelVideoCall(eventType);

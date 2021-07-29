@@ -35,8 +35,10 @@ export interface StateType {
   userId: Nullable<string>;
   /** 用户签名 */
   userSig: Nullable<string>;
-  /**  房间成员 */
+  /**  房间成员（过滤已离开成员） */
   members: IMembersInfo[];
+  /**  原始房间成员（未过滤已离开成员） */
+  originMembers: IMembersInfo[];
   /**  用户自己信息 */
   selfMember: Nullable<IMembersInfo>;
   /**  选中的用户 */
@@ -92,6 +94,7 @@ const initialState = (): StateType => ({
   minorVideoViews: [],
   extend: null,
   time: 0,
+  originMembers: [],
 });
 
 const Model: BaseModel<StateType> = {
@@ -149,6 +152,7 @@ const Model: BaseModel<StateType> = {
       ]);
       const params: any = {
         members: (res.roomMembersInfo || []).filter(item => filterKeys.has(item.memberStatus)),
+        originMembers: res.roomMembersInfo || [],
       };
       if (selfMemberInfo) {
         params.selfMember = selfMemberInfo;
