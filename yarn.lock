@@ -2714,10 +2714,10 @@
     react-photo-view "^0.5.2"
     uuid "^8.3.2"
 
-"@wjj/gm-request-saas@^1.0.2":
-  version "1.0.2"
-  resolved "http://119.3.59.10:8081/repository/npm-all/@wjj/gm-request-saas/-/gm-request-saas-1.0.2.tgz#607b38dfea573652b5e5db1206f5e564d3bd492e"
-  integrity sha512-bbWV0drJaUqbymMn3SmA1nyDti9M4BXrsi3NLoobfAgdecNyLgptKHr1vABz4DbicKZXW3c53EBiXDwlZioS2A==
+"@wjj/gm-request-saas@^1.0.3":
+  version "1.0.3"
+  resolved "http://119.3.59.10:8081/repository/npm-all/@wjj/gm-request-saas/-/gm-request-saas-1.0.3.tgz#72cfebb007c8ff93d81b61a210d9f3bdad11aa0a"
+  integrity sha512-ALzVIJbvktLEfpZEnRj0iseLKCcpsOSJxnS+uUpYQa04QakAoFKPYcMqNAz6EHRlQDw2rjWGmswngkcqpJC/0w==
   dependencies:
     "@wjj/gm-antd" "^1.0.3"
     lodash-es "^4.17.21"
