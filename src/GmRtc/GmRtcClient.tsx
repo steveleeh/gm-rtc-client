@@ -487,7 +487,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         break;
       default:
     }
-    await leave(ECancelEventType.CANCEL);
+    await leave(ECancelEventType.HANG_UP);
   };
 
   /** Audio/Video Player 状态变化 */
