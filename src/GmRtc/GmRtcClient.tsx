@@ -994,7 +994,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
       );
       console.warn(e);
-      leave(ECancelEventType.CANCEL);
+      leave(ECancelEventType.HANG_UP);
       return;
     }
     await createRtcClient({
