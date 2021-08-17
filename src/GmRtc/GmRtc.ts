@@ -86,7 +86,7 @@ export interface RTCEventMap extends StreamEventMap, ClientEventMap {
   [RTCEvent.JOIN_ERROR]: any;
   [RTCEvent.INITIALIZE_SUCCESS]: void;
   [RTCEvent.INITIALIZE_ERROR]: DOMException;
-  [RTCEvent.PUBLISH_SUCCESS]: void;
+  [RTCEvent.PUBLISH_SUCCESS]: LocalStream;
   [RTCEvent.PUBLISH_ERROR]: RtcError;
   [RTCEvent.BadNetworkQuality]: void;
 }
@@ -388,7 +388,7 @@ class GmRtc implements IGmRtc {
       // 推送本地流
       try {
         await this._client.publish(this._localStream as LocalStream);
-        this.executeEventFn(RTCEvent.PUBLISH_SUCCESS);
+        this.executeEventFn(RTCEvent.PUBLISH_SUCCESS, this._localStream);
       } catch (error) {
         console.error(`failed to publish local stream ${error}`);
         this.executeEventFn(RTCEvent.PUBLISH_ERROR, error);

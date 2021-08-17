@@ -45,6 +45,8 @@ export interface IGmRtcProps {
   className?: string;
   /** 插件 */
   plugins: GmRtcClientPlugin[];
+  /** 应用名称 */
+  appName?: string;
 }
 
 /** 插件事件 */

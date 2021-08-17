@@ -18,26 +18,27 @@ import type {
 } from '@/GmRtc/types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
-import type { RemoteStreamInfo, RemoteUserInfo, Stream } from 'trtc-js-sdk';
+import type { LocalStream, RemoteStreamInfo, RemoteUserInfo, Stream, RtcError } from 'trtc-js-sdk';
+import { getCameras, getMicrophones } from 'trtc-js-sdk';
 import styles from './index.less';
 import UsePrivateModel from './usePrivateModel';
 import type { IVideoView, StateType } from './models';
 import Model from './models';
-import { EIconUrl, EAvatarUrl } from '@/types/EImageUrl';
+import { EAvatarUrl, EIconUrl } from '@/types/EImageUrl';
 import { CallModeText, ECallType } from '@/types/ECallType';
 import { usePluginContainer } from './plugins';
-import { ECallState } from '@/types/ECallState';
+import { ECallState, ECallStateText } from '@/types/ECallState';
 import type { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
 import { GmIcon, GmNotification } from '@wjj/gm-antd';
 import { formatDuration, onExitFullScreen, onFullScreen, timeout } from '@/utils';
 import {
-  isNumber,
   capitalize,
   cloneDeep,
   filter,
   find,
   findIndex,
   isNil,
+  isNumber,
   isString,
   pullAllBy,
 } from 'lodash-es';
@@ -57,9 +58,9 @@ import { CallerUserCardText } from '@/types/ECallerUserCard';
 import type { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-call-create-response.model';
 import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
-import { getCameras, getMicrophones } from 'trtc-js-sdk';
 import { ECallAudio } from '@/types/ECallAudio';
 import { EMemberStatus } from '@/types/EMemberStatus';
+import gmLog from '@wjj/gm-log';
 
 interface IBtnItem {
   name: string;
@@ -90,7 +91,7 @@ const prefix = 'gm-rtc';
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { style, className, device } = props;
+  const { style, className, device, appName } = props;
 
   const { namespace, data, dispatch, getState } = UsePrivateModel<StateType | null>({
     prefix: 'videochat',
@@ -99,6 +100,30 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   const [otherInfoPluginElement, setOtherInfoPluginElement] = useState<React.ReactNode>(null);
 
+  /** 上报日志 */
+  const debugLog = useCallback((...args: any) => {
+    const params: string[] = [];
+    // eslint-disable-next-line no-plusplus
+    for (let i = 0, len = args.length; i < len; i++) {
+      try {
+        const argStr = JSON.stringify(args[i]);
+        params.push(argStr);
+      } catch (e) {
+        console.warn('debugLog parse error', args[i]);
+      }
+    }
+
+    const date = new Date();
+    gmLog.info({
+      appName,
+      contentType: 1,
+      createdTime: `${date.getFullYear()}-${
+        date.getMonth() + 1
+      }-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`,
+      responseContent: JSON.stringify(params),
+    });
+  }, []);
+
   /* 检查设备情况 */
   const checkDevice = (params: IDevice): Promise<void> =>
     new Promise(async (resolve, reject) => {
@@ -106,10 +131,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         try {
           const cameras = await getCameras();
           if (!Array.isArray(cameras) || cameras.length === 0) {
+            debugLog('没有获取到摄像头');
             reject();
             return;
           }
+          debugLog('获取摄像头成功', cameras);
         } catch (e) {
+          debugLog('获取摄像头失败', e);
           reject(e);
           return;
         }
@@ -118,10 +146,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         try {
           const microphones = await getMicrophones();
           if (!Array.isArray(microphones) || microphones.length === 0) {
+            debugLog('没有获取到麦克风');
             reject();
             return;
           }
+          debugLog('获取麦克风成功', microphones);
         } catch (e) {
+          debugLog('获取麦克风失败', e);
           reject(e);
           return;
         }
@@ -138,6 +169,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 倒计时结束 */
   const onCallEnd = async () => {
+    debugLog('触发了定时器结束事件（被呼叫或者呼叫他人，倒计时2分钟没有接通，就结束该次通话）');
     const videoCallState = getState()?.callState;
     if (videoCallState === ECallState.BE_CALLED) {
       GmNotification.warn(EMessageText.USER_CANCEL);
@@ -152,6 +184,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 倒计时结束 */
   const onStreamEnd = async () => {
+    debugLog(
+      '触发了定时器结束事件（接通后10s内没有成功建立连接（视频流订阅成功），就结束该次通话）',
+    );
     GmNotification.warn(EMessageText.USER_CANCEL);
     await leave(ECancelEventType.CANCEL);
   };
@@ -164,7 +199,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /**
    * 定时器
-   * 作用：接通后10s内没有成功建立连接（视频流订阅成功），就结束该次通话
+   * 作用：接通后15s内没有成功建立连接（视频流订阅成功），就结束该次通话
    */
   const [, setStreamTargetDate] = useCountDown({ onEnd: onStreamEnd });
 
@@ -179,13 +214,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     {}) as StateType;
 
   // 提示文案
-  const [tipText, setTipsText] = useState<Nullable<string>>(null);
+  const [tipText, setTipsText] = useState<React.ReactNode>(null);
 
   // 消息提示队列
   const [messageToast] = useState(
     new MessageToast({
       noticeFrequency: MessageNoticeFrequency.ALWAYS,
-      interval: 1000,
+      interval: 500,
     }),
   );
   // 音视频计时消息id
@@ -213,9 +248,21 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     };
   };
 
-  /** 无限时间的提示 */
+  /**
+   * Stream对象序列化(debug日志用)
+   * @param stream
+   */
+  const transformStreamToString = (stream: Stream) => {
+    return JSON.stringify({
+      id: stream.getId(),
+      userId: stream.getUserId(),
+      audio: stream.getAudioTrack(),
+      video: stream.getVideoTrack(),
+    });
+  };
+
+  /** toast长时间展示 */
   const setInfinityToast = (params: Partial<MessageItemParams>) => {
-    messageToast.clear();
     return messageToast.show({
       level: EMessageLevel.LOW,
       time: Infinity,
@@ -354,6 +401,20 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     });
   };
 
+  /** 是否所有用户都离开房间（直接解散退出） */
+  const isAllUserLeave = () => {
+    const selfMem = getState()?.selfMember;
+    const originMembers = getState()?.originMembers;
+    const filterKeys = new Set([
+      EMemberStatus.WAIT_CALL,
+      EMemberStatus.BE_CALLING,
+      EMemberStatus.CALLING,
+    ]);
+    return (originMembers || [])
+      .filter(item => item.memberAccount !== selfMem.memberAccount)
+      .every(item => !filterKeys.has(item.memberStatus));
+  };
+
   /** 更新视频视图 */
   const updateVideoView = async (params?: IUpdateVideoViewParams) => {
     const { roomId } = params || {};
@@ -363,18 +424,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         roomId: roomId || getState()?.roomId,
       },
     });
-    const selfMem = getState()?.selfMember;
-    const originMembers = getState()?.originMembers;
-    const filterKeys = new Set([
-      EMemberStatus.WAIT_CALL,
-      EMemberStatus.BE_CALLING,
-      EMemberStatus.CALLING,
-    ]);
-    // 是否房间内的用户都离开了
-    const isUserLeave = (originMembers || [])
-      .filter(item => item.memberAccount !== selfMem.memberAccount)
-      .every(item => !filterKeys.has(item.memberStatus));
-    if (isUserLeave) {
+    if (isAllUserLeave()) {
       await leave(ECancelEventType.HANG_UP);
     }
     await updateMainVideoView(params);
@@ -385,43 +435,55 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleJoinSuccess = async () => {
     // messageToast.show({ content: EMessageText.JOIN_SUCCESS, level: EMessageLevel.MIDDLE });
     await updateVideoView();
+    debugLog('进房成功事件', {
+      roomId: getState()?.roomId,
+    });
     // 渲染对应的视频
   };
 
-  /** 进房失败件 */
-  const handleJoinError = async () => {
+  /** 进房失败事件 */
+  const handleJoinError = async (error: any) => {
     messageToast.show({ content: EMessageText.JOIN_ERROR, level: EMessageLevel.MIDDLE });
     GmNotification.error(EMessageText.JOIN_ERROR);
     await leave(ECancelEventType.CANCEL);
+    debugLog(
+      '进房失败事件',
+      {
+        roomId: getState()?.roomId,
+      },
+      error,
+    );
   };
 
   /** 初始化成功 */
-  const handleInitializeSuccess = () => {};
+  const handleInitializeSuccess = () => {
+    debugLog('初始化成功');
+  };
 
   /** 初始化失败事件 */
   const handleInitializeError = async (error: DOMException) => {
     console.error('handleInitializeError', error, error.name);
+    debugLog('初始化失败事件', `error.code=${error.code},error.name=${error.name}`, error);
     switch (error.name) {
       case 'NotReadableError':
-        GmNotification.error(
-          '暂时无法访问摄像头/麦克风，请确保系统允许当前浏览器访问摄像头/麦克风，并且没有其他应用占用摄像头/麦克风',
-        );
+        GmNotification.error(EMessageText.INITIALIZE_ERROR_NOT_READABLE);
+        debugLog(EMessageText.INITIALIZE_ERROR_NOT_READABLE);
         break;
       case 'NotAllowedError':
-        GmNotification.error('请确保系统允许当前浏览器访问摄像头/麦克风');
+        GmNotification.error(EMessageText.INITIALIZE_ERROR_NOT_ALLOWED);
+        debugLog(EMessageText.INITIALIZE_ERROR_NOT_ALLOWED);
         break;
       case 'NotFoundError':
-        GmNotification.error(
-          '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
-        );
+        GmNotification.error(EMessageText.INITIALIZE_ERROR_NOT_FOUND_ERROR);
+        debugLog(EMessageText.INITIALIZE_ERROR_NOT_FOUND_ERROR);
         break;
       case 'AbortError':
-        GmNotification.error('由于某些未知原因导致设备无法被使用');
+        GmNotification.error(EMessageText.INITIALIZE_ERROR_ABORT_ERROR);
+        debugLog(EMessageText.INITIALIZE_ERROR_ABORT_ERROR);
         break;
       case 'SecurityError':
-        GmNotification.error(
-          '暂时无法访问摄像头/麦克风，请确保系统允许当前浏览器访问摄像头/麦克风，并且没有其他应用占用摄像头/麦克风',
-        );
+        GmNotification.error(EMessageText.INITIALIZE_ERROR_SECURITY_ERROR);
+        debugLog(EMessageText.INITIALIZE_ERROR_SECURITY_ERROR);
         break;
       default:
     }
@@ -432,18 +494,22 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handlePlayerStateChange = () => {};
 
   /** 推流成功 */
-  const handlePublishSuccess = async () => {
+  const handlePublishSuccess = async (localStream: LocalStream) => {
     // const localStream = rtcClient?.getLocalStream();
     await updateVideoView();
+    debugLog('推流成功事件', transformStreamToString(localStream));
   };
 
   /** 推流失败 */
-  const handlePublishError = async () => {
+  const handlePublishError = async (error: RtcError) => {
     GmNotification.error('视频流推送失败');
     await leave(ECancelEventType.CANCEL);
+    debugLog('视频流推送失败事件', error);
   };
 
+  /** 不可恢复错误后 */
   const handleError = (error: any) => {
+    debugLog('不可恢复错误后', error);
     const errorCode = error.getCode();
     if (errorCode === 0x4043) {
       // 自动播放受限，引导用户手势操作并调用 stream.resume 恢复音视频播放
@@ -455,16 +521,16 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 用户被踢出房间 */
   const handleClientBanned = () => {
+    debugLog('设备已在其他端登录');
     GmNotification.error('设备已在其他端登录');
     window.location.reload();
   };
 
   /** 远端用户进房 */
-  const handlePeerJoin = async (userInfo: RemoteUserInfo) => {
-    console.log('handlePeerJoin');
+  const handlePeerJoin = async (evt: RemoteUserInfo) => {
     await updateVideoView();
     // 提示用户进房信息
-    const memberInfo = find(getState()?.members, o => o.memberAccount === userInfo.userId);
+    const memberInfo = find(getState()?.members, o => o.memberAccount === evt.userId);
     if (memberInfo) {
       messageToast.show({
         content: `${memberInfo.nickname}（${
@@ -472,9 +538,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         }）加入房间`,
         level: EMessageLevel.MIDDLE,
       });
+      debugLog(
+        `${memberInfo.nickname}（${CallerUserCardText[memberInfo.userCard as number]}）加入房间`,
+      );
     }
     // 切换为视频中状态
     await changeCallState(ECallState.CALLING);
+    debugLog('远端用户进房', evt);
   };
 
   /** 远端用户离房 */
@@ -487,21 +557,26 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         }）离开房间`,
         level: EMessageLevel.MIDDLE,
       });
+      debugLog(
+        `${memberInfo.nickname}（${CallerUserCardText[memberInfo.userCard as number]}）离开房间`,
+      );
       // 主要人离开房间
       if (memberInfo.isKeyMember === EKeyMember.MAIN) {
         await leave(ECancelEventType.CANCEL);
       }
     }
     await updateVideoView();
+    debugLog('远端用户离房', evt);
   };
 
   /** 远端流添加 */
-  const handleStreamAdd = async () => {
+  const handleStreamAdd = async (evt: RemoteStreamInfo) => {
     await updateVideoView();
+    debugLog('远端流添加', evt);
   };
 
   /** 远端流订阅成功 */
-  const handleStreamSubscribed = async () => {
+  const handleStreamSubscribed = async (evt: RemoteStreamInfo) => {
     console.log('handleStreamSubscribed');
     setStreamTargetDate(undefined);
     if (!videoTimeToastId.current) {
@@ -510,6 +585,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       });
     }
     await updateVideoView();
+    debugLog('远端流订阅成功', evt);
   };
 
   /** 远端流移除 */
@@ -520,17 +596,20 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (memberInfo.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
     }
+    debugLog('远端流移除', evt);
   };
 
   /** 远端流更新 */
-  const handleStreamUpdate = async () => {
+  const handleStreamUpdate = async (evt: RemoteStreamInfo) => {
     // await updateStream(evt);
     await updateVideoView();
+    debugLog('远端流更新', evt);
   };
 
   /** 网络断开 */
   const handleBadNetworkQuality = async () => {
     GmNotification.warn(EMessageText.NETWORK_ERROR);
+    debugLog('网络断开');
     await leave(ECancelEventType.CANCEL);
   };
 
@@ -587,6 +666,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (messageToast) {
       messageToast.clear();
     }
+    onChangeExitFullScreen();
     setTipsText(null);
     setOtherInfoPluginElement(null);
     videoTimeToastId.current = null;
@@ -608,6 +688,12 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     ) {
       console.error("create client failed: params can't empty");
       GmNotification.error('视频客户端创建失败: 参数异常');
+      debugLog('视频客户端创建失败: 参数异常', {
+        sdkAppId,
+        userId: res?.userId,
+        userSig: res?.userSig,
+        roomId: params?.roomId,
+      });
       return null;
     }
     const newRtcClient = new GmRtc({
@@ -618,6 +704,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       audio: true,
       video: getState()?.callType === ECallType.VIDEO,
     });
+    debugLog('视频客户端创建成功');
     newRtcClient.subscribe(eventHandler);
     newRtcClient.subscribe(externalEventHandler);
     await dispatch({
@@ -662,6 +749,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 拨打状态切换 */
   const changeCallState = async (state: ECallState) => {
+    debugLog('拨打状态切换为', ECallStateText[state], state);
     if (state === getState()?.callState) {
       console.warn('call state repeat has been ignored');
       return;
@@ -671,39 +759,31 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     // 设置为拨打用户中
     if (state === ECallState.ON_CALL) {
       setCallTargetDate(getCountdownDate(120000));
-      messageToast.clear();
-      messageToast.show({
-        content: EMessageText.WAIT_CONNECT,
-        time: Infinity,
-        level: EMessageLevel.LOW,
+      setInfinityToast({
+        content: getLoadingText(EMessageText.WAIT_CONNECT),
       });
     }
     // 设置为拨打用户中
     if (state === ECallState.BE_CALLED) {
       setCallTargetDate(getCountdownDate(120000));
-      messageToast.clear();
-      messageToast.show({
-        content: `邀请您${CallModeText[getState()?.callType as ECallType]}通话...`,
-        time: Infinity,
-        level: EMessageLevel.LOW,
+      setInfinityToast({
+        content: getLoadingText(`邀请您${CallModeText[getState()?.callType as ECallType]}通话`),
       });
     }
     // 设置为拨打用户中
     if (state === ECallState.CALLING) {
-      console.log('ECallState.CALLING');
       setCallTargetDate(undefined);
       // fix: 小康没有正常进房或推流的情况，记录超时挂断
       if ((getState()?.client?.getRemoteStream?.() || []).length === 0) {
         setStreamTargetDate(getCountdownDate(15000));
       }
-      messageToast.show({
-        content: EMessageText.VIDEO_INITIAL,
-        level: EMessageLevel.LOW,
+      setInfinityToast({
+        content: getLoadingText(EMessageText.VIDEO_INITIAL),
       });
     }
   };
 
-  /** 计算时间 */
+  /** 统计通话时长 */
   const getVideoDuration = useCallback(() => {
     const initialTime = performance.now();
     let time = 0;
@@ -720,6 +800,36 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       });
       pluginContainer.onTick?.(time);
       return formatDuration(time);
+    };
+  }, []);
+
+  /**
+   * 字符动画：加载中 : 加载中. -> 加载中.. -> 加载中...
+   */
+  const getLoadingText = useCallback((text: string) => {
+    const initialTime = performance.now();
+    let time = 0;
+    const connectTemplate = loadingText => (
+      <span>
+        <span>{text}</span>
+        <span className={styles.loadingText}>{loadingText}</span>
+      </span>
+    );
+    // eslint-disable-next-line consistent-return
+    return (newTime: number) => {
+      if (newTime) {
+        time = newTime;
+      }
+      time = performance.now() - initialTime;
+      if (Math.ceil(time / 500) % 3 === 0) {
+        return connectTemplate('.');
+      }
+      if (Math.ceil(time / 500) % 3 === 1) {
+        return connectTemplate('..');
+      }
+      if (Math.ceil(time / 500) % 3 === 2) {
+        return connectTemplate('...');
+      }
     };
   }, []);
 
@@ -760,8 +870,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * @description 加锁：防止同时多次调用导致创建音视频异常
    */
   const handleVideoChatCreate = useLockFn(async (params: ICreateClientParams) => {
+    debugLog('创建音视频', params);
     if (getState()?.roomId) {
       GmNotification.error('存在进行中的视频通话，请先挂断');
+      debugLog('存在进行中的视频通话，请先挂断');
       return;
     }
     try {
@@ -773,10 +885,12 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       GmNotification.error(
         '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
       );
+      debugLog(
+        '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
+      );
       console.warn(e);
       return;
     }
-    console.log('handleVideoChatCreate');
     await pluginContainer?.onCreateMessage?.(params);
     let res = {} as IImCallCreateResponse;
     try {
@@ -784,6 +898,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       res = await createVideoCallUsingPOST(params);
     } catch (e) {
       console.error('创建音视频会话失败');
+      debugLog('创建音视频会话失败');
       return;
     }
     await dispatch({
@@ -820,6 +935,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       console.warn("cancel video params can't empty");
       return;
     }
+    debugLog('取消音视频会话');
     await cancelVideoCallUsingPOST({
       callType: getState()?.callType,
       callerUserCard: getState()?.userCard,
@@ -846,6 +962,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 会话邀请 */
   const handleVideoChatInvite = async (msg: IVideoChatMessage) => {
+    debugLog('消息:会话邀请', msg);
     if (!isNil(getState()?.roomId)) {
       return;
     }
@@ -888,12 +1005,17 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       userId: msg.sponsorImKey,
     });
     await setMainMember(msg.sponsorImKey);
-    // 设置拨打状态
-    await changeCallState(ECallState.BE_CALLED);
+    if (isAllUserLeave()) {
+      await leave(ECancelEventType.HANG_UP);
+    } else {
+      // 设置拨打状态
+      await changeCallState(ECallState.BE_CALLED);
+    }
   };
 
   /** 取消会话 */
   const handleVideoChatCancel = async (msg: IVideoChatMessage) => {
+    debugLog('消息:取消会话', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -906,6 +1028,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 超时取消 */
   const handleVideoChatTimeoutCancel = async (msg: IVideoChatMessage) => {
+    debugLog('消息:超时取消', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -918,6 +1041,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 挂断 */
   const handleVideoChatHangup = async (msg: IVideoChatMessage) => {
+    debugLog('消息:挂断', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -930,6 +1054,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 拒绝 */
   const handleVideoChatReject = async (msg: IVideoChatMessage) => {
+    debugLog('消息:拒绝', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -942,6 +1067,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 超时拒绝 */
   const handleVideoChatTimeoutReject = async (msg: IVideoChatMessage) => {
+    debugLog('消息:超时拒绝', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -954,6 +1080,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 音视频切换 */
   const handleVideoChatSwitch = async (msg: IVideoChatMessage) => {
+    debugLog('消息:音视频切换', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -963,6 +1090,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 进房 */
   const handleVideoChatEnterRoom = async (msg: IVideoChatMessage) => {
+    debugLog('消息:进房', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -973,6 +1101,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /*
    * 新增成员 */
   const handleVideoChatAddMember = async (msg: IVideoChatMessage) => {
+    debugLog('消息:新增成员', msg);
     if (ignoreMessage(msg)) {
       return;
     }
@@ -987,6 +1116,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * （2）需要处理catch,防止网络中断导致后续函数不执行；
    */
   const leave = useLockFn(async (eventType?: ECancelEventType) => {
+    debugLog('结束通话', eventType);
     // 防止资源重复销毁
     if (!getState()?.roomId) {
       return;
@@ -1093,6 +1223,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await updateVideoView({
       userId: memberInfo?.memberAccount,
     });
+    debugLog('选中用户', memberInfo);
   };
 
   /** 接听 */
@@ -1104,6 +1235,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       await client.join();
       await client.publish();
     }
+    debugLog('点击接听');
   };
 
   /** 拒绝 */
@@ -1116,6 +1248,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleOnCancel = async () => {
     GmNotification.warn(EMessageText.SELF_CANCEL);
     await leave(ECancelEventType.HANG_UP);
+    debugLog('点击挂断');
   };
 
   /** 切换语音通话 */
@@ -1141,6 +1274,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       conversationId: getState()?.conversationId,
       roomId: getState()?.roomId,
     });
+    debugLog('切换语音通话');
   };
 
   /** 静音 */
@@ -1160,6 +1294,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       content: EMessageText.MUTE_SUCCESS,
       level: EMessageLevel.MIDDLE,
     });
+    debugLog('静音');
   };
 
   /** 取消静音 */
@@ -1179,6 +1314,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       content: EMessageText.UNMUTE_SUCCESS,
       level: EMessageLevel.MIDDLE,
     });
+    debugLog('取消静音');
   };
 
   const utilsFn = {

@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid';
-import { cloneDeep, sortBy, findIndex } from 'lodash-es';
+import { cloneDeep, sortBy, findIndex, remove } from 'lodash-es';
 
 interface IMessageItem {
   id: string;
@@ -148,6 +148,12 @@ export default class MessageToast implements IMessageToast {
 
   /** 新增消息 */
   public show(item: MessageItemParams): string {
+    if (item.time === Infinity) {
+      // 删除当前queue数据
+      remove(this.queue, o => {
+        return o.time === Infinity;
+      });
+    }
     const id = uuid();
     this.queue.unshift({
       id: uuid(),

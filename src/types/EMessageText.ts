@@ -1,6 +1,6 @@
 /** 消息提示文案 */
 export enum EMessageText {
-  WAIT_CONNECT = '正在等待对方接收邀请...',
+  WAIT_CONNECT = '正在等待对方接收邀请',
   JOIN_SUCCESS = '进入房间成功',
   JOIN_ERROR = '进入房间失败',
   SELF_ACCEPT = '通话已接受',
@@ -14,7 +14,7 @@ export enum EMessageText {
   USER_TIMEOUT_CANCEL = '当前无人接听，请稍后再试',
   USER_TIMEOUT_REJECT = '用户已取消',
   USER_ACCEPT = '用户已同意',
-  VIDEO_INITIAL = '正在建立连接通道...',
+  VIDEO_INITIAL = '正在建立连接通道',
   INITIALIZE_SUCCESS = '音视频初始化成功',
   SWITCH_TO_AUDIO_SUCCESS = '摄像头已关闭',
   CONNECT_SUCCESS = '连接成功',
@@ -23,4 +23,9 @@ export enum EMessageText {
   UNMUTE_SUCCESS = '已取消静音',
   SWITCH_AUDIO = '已切换为语音',
   NETWORK_ERROR = '网络已断开',
+  INITIALIZE_ERROR_NOT_READABLE = '暂时无法访问摄像头/麦克风，请确保系统允许当前浏览器访问摄像头/麦克风，并且没有其他应用占用摄像头/麦克风',
+  INITIALIZE_ERROR_NOT_ALLOWED = '请确保系统允许当前浏览器访问摄像头/麦克风',
+  INITIALIZE_ERROR_NOT_FOUND_ERROR = '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
+  INITIALIZE_ERROR_ABORT_ERROR = '由于某些未知原因导致设备无法被使用',
+  INITIALIZE_ERROR_SECURITY_ERROR = '暂时无法访问摄像头/麦克风，请确保系统允许当前浏览器访问摄像头/麦克风，并且没有其他应用占用摄像头/麦克风',
 }
