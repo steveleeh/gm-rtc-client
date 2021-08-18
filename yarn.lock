@@ -2714,10 +2714,10 @@
     react-photo-view "^0.5.2"
     uuid "^8.3.2"
 
-"@wjj/gm-log@^1.0.1":
-  version "1.0.1"
-  resolved "http://119.3.59.10:8081/repository/npm-all/@wjj/gm-log/-/gm-log-1.0.1.tgz#f721611a66ac3bfc1e905522e730565c383795dc"
-  integrity sha512-snWQyJ66DSc3KslMJJejeivPsfRLxkspK7RGfqF674Idga/ZqwA35j795lSo3NJryqCVeZpTb34ul1fDgHP8DQ==
+"@wjj/gm-log@^1.0.2":
+  version "1.0.2"
+  resolved "http://119.3.59.10:8081/repository/npm-all/@wjj/gm-log/-/gm-log-1.0.2.tgz#f9bd824e212d7d9a2fad8bc5b445c9ffe1cf5fb5"
+  integrity sha512-hphph1uFX+8J88uvdG2ho3bi3c3VhcC9dVBQ/2g0bTyhmqV/ekCbIsH/o8jGFPd8YjYXknsWjjwA3RNMlwWibA==
   dependencies:
     eslint-plugin-prettier "^3.4.0"
 

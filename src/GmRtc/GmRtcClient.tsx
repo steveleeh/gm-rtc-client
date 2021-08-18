@@ -401,9 +401,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     });
   };
 
-  /** 是否所有用户都离开房间（直接解散退出） */
-  const isAllUserLeave = () => {
-    const selfMem = getState()?.selfMember;
+  /** 有关键人离开（直接解散退出） */
+  const isUserLeave = () => {
     const originMembers = getState()?.originMembers;
     const filterKeys = new Set([
       EMemberStatus.WAIT_CALL,
@@ -411,8 +410,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       EMemberStatus.CALLING,
     ]);
     return (originMembers || [])
-      .filter(item => item.memberAccount !== selfMem.memberAccount)
-      .every(item => !filterKeys.has(item.memberStatus));
+      .filter(item => item.isKeyMember === EKeyMember.MAIN)
+      .some(item => !filterKeys.has(item.memberStatus));
   };
 
   /** 更新视频视图 */
@@ -424,7 +423,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         roomId: roomId || getState()?.roomId,
       },
     });
-    if (isAllUserLeave()) {
+    if (isUserLeave()) {
       await leave(ECancelEventType.HANG_UP);
     }
     await updateMainVideoView(params);
@@ -662,6 +661,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 初始化数据 */
   const initialState = async (): Promise<void> => {
+    // 清除定时器
+    setCallTargetDate(undefined);
+    setStreamTargetDate(undefined);
+    setOtherInfoPluginElement(null);
     // 清除toast资源
     if (messageToast) {
       messageToast.clear();
@@ -1005,7 +1008,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       userId: msg.sponsorImKey,
     });
     await setMainMember(msg.sponsorImKey);
-    if (isAllUserLeave()) {
+    if (isUserLeave()) {
       await leave(ECancelEventType.HANG_UP);
     } else {
       // 设置拨打状态
@@ -1119,6 +1122,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     debugLog('结束通话', eventType);
     // 防止资源重复销毁
     if (!getState()?.roomId) {
+      // fix: 数据异常情况下，如果视图不是空闲就重新销毁一次
+      if (getState()?.callState !== ECallState.FREE) {
+        await initialState();
+      }
       return;
     }
     if (isNumber(eventType)) {
