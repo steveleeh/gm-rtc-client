@@ -780,9 +780,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       if ((getState()?.client?.getRemoteStream?.() || []).length === 0) {
         setStreamTargetDate(getCountdownDate(15000));
       }
-      setInfinityToast({
-        content: getLoadingText(EMessageText.VIDEO_INITIAL),
-      });
+      if (!videoTimeToastId.current) {
+        setInfinityToast({
+          content: getLoadingText(EMessageText.VIDEO_INITIAL),
+        });
+      }
     }
   };
 
