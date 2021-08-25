@@ -120,7 +120,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       createdTime: `${date.getFullYear()}-${
         date.getMonth() + 1
       }-${date.getDate()} ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}`,
-      responseContent: JSON.stringify(params),
+      responseContent: params.join('----'),
     });
   }, []);
 
@@ -403,7 +403,12 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 有关键人离开（直接解散退出） */
   const isUserLeave = () => {
-    const originMembers = getState()?.originMembers;
+    const originMembers = getState()?.originMembers || [];
+    const members = getState()?.members || [];
+    // 用户列表为空说明所有用户都离开了
+    if (members.length === 0 || originMembers.length === 0) {
+      return true;
+    }
     const filterKeys = new Set([
       EMemberStatus.WAIT_CALL,
       EMemberStatus.BE_CALLING,
@@ -576,7 +581,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 远端流订阅成功 */
   const handleStreamSubscribed = async (evt: RemoteStreamInfo) => {
-    console.log('handleStreamSubscribed');
     setStreamTargetDate(undefined);
     if (!videoTimeToastId.current) {
       videoTimeToastId.current = setInfinityToast({
@@ -591,9 +595,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleStreamRemove = async (evt: RemoteStreamInfo) => {
     const memberInfo = getMember(evt.stream.getUserId());
     await updateVideoView();
-    // 关键人离开结束通话
-    if (memberInfo.isKeyMember === EKeyMember.MAIN) {
-      await leave(ECancelEventType.CANCEL);
+    if (memberInfo) {
+      // 关键人离开结束通话
+      if (memberInfo.isKeyMember === EKeyMember.MAIN) {
+        await leave(ECancelEventType.CANCEL);
+      }
     }
     debugLog('远端流移除', evt);
   };
