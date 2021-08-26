@@ -18,7 +18,7 @@ import type {
 } from '@/GmRtc/types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
-import type { LocalStream, RemoteStreamInfo, RemoteUserInfo, Stream, RtcError } from 'trtc-js-sdk';
+import type { LocalStream, RemoteStreamInfo, RemoteUserInfo, RtcError, Stream } from 'trtc-js-sdk';
 import { getCameras, getMicrophones } from 'trtc-js-sdk';
 import styles from './index.less';
 import UsePrivateModel from './usePrivateModel';
@@ -419,17 +419,37 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       .some(item => !filterKeys.has(item.memberStatus));
   };
 
-  /** 更新视频视图 */
-  const updateVideoView = async (params?: IUpdateVideoViewParams) => {
-    const { roomId } = params || {};
-    await dispatch({
+  /**
+   * 更新房间信息
+   * @param roomId 房间号
+   */
+  const updateRoomInfo = (roomId: number) => {
+    return dispatch({
       type: `${namespace}/getImRoomInfo`,
       payload: {
         roomId: roomId || getState()?.roomId,
       },
     });
+  };
+
+  /**
+   * 获取结束状态
+   * 通话中都是发挂断信令，其他场景都发取消信息
+   */
+  const getCancelType = (): ECancelEventType => {
+    const state = getState()?.callState;
+    if (state === ECallState.CALLING) {
+      return ECancelEventType.HANG_UP;
+    }
+    return ECancelEventType.CANCEL;
+  };
+
+  /** 更新视频视图 */
+  const updateVideoView = async (params?: IUpdateVideoViewParams) => {
+    const { roomId } = params || {};
+    await updateRoomInfo(roomId);
     if (isUserLeave()) {
-      await leave(ECancelEventType.HANG_UP);
+      await leave(getCancelType());
     }
     await updateMainVideoView(params);
     await updateMinorVideoViews();
@@ -466,8 +486,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 初始化失败事件 */
   const handleInitializeError = async (error: DOMException) => {
-    console.error('handleInitializeError', error, error.name);
-    debugLog('初始化失败事件', `error.code=${error.code},error.name=${error.name}`, error);
+    console.error('handleInitializeError', error, error?.name);
+    debugLog('初始化失败事件', `error.code=${error?.code},error.name=${error?.name}`, error);
     switch (error.name) {
       case 'NotReadableError':
         GmNotification.error(EMessageText.INITIALIZE_ERROR_NOT_READABLE);
@@ -1005,7 +1025,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
       );
       console.warn(e);
-      leave(ECancelEventType.HANG_UP);
+      await leave(ECancelEventType.CANCEL);
       return;
     }
     await createRtcClient({

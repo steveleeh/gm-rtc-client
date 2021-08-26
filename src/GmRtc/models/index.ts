@@ -49,7 +49,7 @@ export interface StateType {
   userCard: Nullable<ECallerUserCard>;
   /**  拨打模式：（创建音视频时候定义的，和服务端一致） */
   callType: ECallType;
-  /**  页面视频模式 */
+  /**  页面视频模式（页面内定义的，比如点击切换语音按钮，就从视频模式变成音频模式） */
   videoType: ECallType;
   /**  是否全屏 */
   fullScreen: boolean;
