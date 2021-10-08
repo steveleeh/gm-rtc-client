@@ -81,10 +81,14 @@ export interface ICreateClientParams {
   extend?: string;
 }
 
-interface ICreateRtcClientParams {
+export interface ICreateRtcClientParams {
   /** 房间号 */
   roomId: number;
 }
+
+export declare type renderMemberTemplateFn =
+  | ((membersInfo: IMembersInfo) => React.ReactNode)
+  | null;
 
 const prefix = 'gm-rtc';
 
@@ -98,7 +102,54 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     model: Model,
   });
 
+  const renderName = (userInfo?: IMembersInfo | undefined, alias?: string) => (
+    <div>
+      <span title={alias || userInfo?.nickname}>{alias || userInfo?.nickname}</span>
+      {!isNil(userInfo?.userCard) && (
+        <span title={CallerUserCardText[userInfo?.userCard as number]}>
+          （{CallerUserCardText[userInfo?.userCard as number]}）
+        </span>
+      )}
+    </div>
+  );
+
+  /**
+   * 默认渲染用户卡片模板
+   * @param userInfo 用户信息
+   * @param selected 是否选中
+   * @param alias 自定义别名
+   */
+  const renderUserCardDefaultTemplate = (userInfo: IMembersInfo) => {
+    const isSelf = getState()?.selfMember?.memberAccount === userInfo?.memberAccount;
+    const selected =
+      getState()?.mainVideoView?.memberInfo?.memberAccount === userInfo?.memberAccount;
+    const alias = isSelf ? '我' : undefined;
+    return (
+      <div
+        className={classNames(styles.userCard, {
+          [styles.userCardSelected]: selected,
+          [styles.userCardUnSelected]: !selected,
+        })}
+      >
+        <div className={styles.videoItem} id={`video-${userInfo?.memberAccount}`} />
+        <div
+          className={styles.userCardAvatar}
+          style={{
+            backgroundImage: `url("${EAvatarUrl[userInfo?.userCard]}")`,
+          }}
+        />
+        <div className={styles.userCardShade} />
+        <div className={styles.userCardText}>{renderName(userInfo, alias)}</div>
+      </div>
+    );
+  };
+
+  /** 渲染附加信息 */
   const [otherInfoPluginElement, setOtherInfoPluginElement] = useState<React.ReactNode>(null);
+  /** 渲染用户信息模板 */
+  const [renderMemberTemplate, setRenderMemberTemplate] = useState<renderMemberTemplateFn>(
+    () => renderUserCardDefaultTemplate,
+  );
 
   /** 上报日志 */
   const debugLog = useCallback((...args: any) => {
@@ -210,7 +261,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   const [, forceUpdate] = useReducer(x => x + 1, 0);
 
-  const { fullScreen, selfMember, callState, expand, mainVideoView, mute, videoType } = (data ||
+  const { fullScreen, callState, expand, mainVideoView, mute, videoType } = (data ||
     {}) as StateType;
 
   // 提示文案
@@ -275,6 +326,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     setOtherInfoPluginElement(node);
   };
 
+  /** 渲染用户信息模板 */
+  const renderMemberTemplatePlugin = (fn: renderMemberTemplateFn) => {
+    setRenderMemberTemplate(() => fn);
+  };
+
   /** 通过userId获取流 */
   const getStreamByUserId = useCallback((userId: string | undefined) => {
     const client = getState()?.client;
@@ -284,8 +340,30 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     return null;
   }, []);
 
+  /**
+   * @description: 获取所有成员，合并members和extraMembers
+   * @param {*} userId 用户唯一标识
+   * @return {*} 用户信息
+   */
+  const getAllMembers = useCallback<() => IMembersInfo[]>(() => {
+    const mergeMembers = [...getState()?.members];
+    const extraMembers = getState()?.extraMembers;
+    extraMembers.forEach(item => {
+      const index = findIndex(mergeMembers, o => o.memberAccount === item.memberAccount);
+      if (index === -1) {
+        mergeMembers.push(item);
+      }
+    });
+    return mergeMembers;
+  }, []);
+
+  /**
+   * @description: 根据userId获取用户信息（只在members中查找，不包含extraMembers）
+   * @param {*} userId 用户唯一标识
+   * @return {*} 用户信息
+   */
   const getMember = useCallback<(userId: string) => IMembersInfo | undefined>(userId => {
-    return find(getState()?.members, o => o.memberAccount === userId);
+    return find(getAllMembers(), o => o.memberAccount === userId);
   }, []);
 
   /** 主视频视图 */
@@ -299,7 +377,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (isNil(userId)) {
       // 更新数据
       const memberInfo = find(
-        getState()?.members,
+        getAllMembers(),
         o => o.memberAccount === mainVideoViewItem?.memberInfo?.memberAccount,
       );
       if (isNil(memberInfo)) {
@@ -315,7 +393,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         newVideoView.stream = getStreamByUserId(memberInfo.memberAccount) as Stream;
       }
     } else {
-      const memberInfo = find(getState()?.members, o => o.memberAccount === userId);
+      const memberInfo = find(getAllMembers(), o => o.memberAccount === userId);
       if (!memberInfo) {
         return;
       }
@@ -346,7 +424,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     const oldMinorVideoViews = getState()?.minorVideoViews || [];
     // 主视频userId
     const mainVideoUserId = getState()?.mainVideoView?.memberInfo?.memberAccount;
-    const newMembers = getState()?.members || [];
+    const newMembers = getAllMembers();
     const newMinorMembers = (getState()?.minorVideoViews || []).map(o => o.memberInfo);
     // 新成员信息和旧视图数据进行比较
     const compareRes = compareList(
@@ -404,7 +482,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 有关键人离开（直接解散退出） */
   const isUserLeave = () => {
     const originMembers = getState()?.originMembers || [];
-    const members = getState()?.members || [];
+    const members = getAllMembers();
     // 用户列表为空说明所有用户都离开了
     if (members.length === 0 || originMembers.length === 0) {
       return true;
@@ -450,6 +528,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await updateRoomInfo(roomId);
     if (isUserLeave()) {
       await leave(getCancelType());
+      return;
     }
     await updateMainVideoView(params);
     await updateMinorVideoViews();
@@ -554,7 +633,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handlePeerJoin = async (evt: RemoteUserInfo) => {
     await updateVideoView();
     // 提示用户进房信息
-    const memberInfo = find(getState()?.members, o => o.memberAccount === evt.userId);
+    const memberInfo = find(getAllMembers(), o => o.memberAccount === evt.userId);
     if (memberInfo) {
       messageToast.show({
         content: `${memberInfo.nickname}（${
@@ -691,6 +770,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     setCallTargetDate(undefined);
     setStreamTargetDate(undefined);
     setOtherInfoPluginElement(null);
+    setRenderMemberTemplate(() => renderUserCardDefaultTemplate);
     // 清除toast资源
     if (messageToast) {
       messageToast.clear();
@@ -882,7 +962,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const getDefaultMember = useCallback(
     () =>
       find(
-        filter(getState()?.members, o => o.isKeyMember === EKeyMember.MAIN),
+        filter(getAllMembers(), o => o.isKeyMember === EKeyMember.MAIN),
         o => o.memberAccount !== getState()?.userId,
       ),
     [],
@@ -981,7 +1061,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * @param imkey 主叫人imkey
    */
   const setMainMember = async (imkey: string) => {
-    const mainMember = find(getState()?.members, o => o.memberAccount === imkey);
+    const mainMember = find(getAllMembers(), o => o.memberAccount === imkey);
     // 设置主叫人
     await dispatch({
       type: `${namespace}/setState`,
@@ -1375,6 +1455,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     addImperativeHandle,
     forceUpdate,
     renderOtherInfoPlugin,
+    renderMemberTemplatePlugin,
     ...utilsFn,
   };
 
@@ -1410,40 +1491,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const renderExpandIcon = (val: boolean) => (
     <div className={styles.expandIconContent} onClick={() => onChangeExpand(val)}>
       <GmIcon className={styles.expandIcon} type={`fas fa-chevron-${val ? 'left' : 'right'}`} />
-    </div>
-  );
-
-  const renderName = (userInfo?: IMembersInfo | undefined, alias?: string) => (
-    <div>
-      <span title={alias || userInfo?.nickname}>{alias || userInfo?.nickname}</span>
-      {!isNil(userInfo?.userCard) && (
-        <span title={CallerUserCardText[userInfo?.userCard as number]}>
-          （{CallerUserCardText[userInfo?.userCard as number]}）
-        </span>
-      )}
-    </div>
-  );
-
-  /**
-   * 渲染用户卡片
-   * @param userInfo 用户信息
-   * @param selected 是否选中
-   * @param alias 自定义别名
-   */
-  const renderUserCard = (userInfo: IMembersInfo, selected: boolean = false, alias?: string) => (
-    <div
-      className={classNames(styles.userCard, {
-        [styles.userCardSelected]: selected,
-        [styles.userCardUnSelected]: !selected,
-      })}
-    >
-      <div className={styles.videoItem} id={`video-${userInfo?.memberAccount}`} />
-      <div
-        className={styles.userCardAvatar}
-        style={{ backgroundImage: `url("${EAvatarUrl[userInfo?.userCard]}")` }}
-      />
-      <div className={styles.userCardShade} />
-      <div className={styles.userCardText}>{renderName(userInfo, alias)}</div>
     </div>
   );
 
@@ -1508,11 +1555,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const renderMemberList = (data?.minorVideoViews || [])
     .map(item => item.memberInfo as IMembersInfo)
     .map(item => {
-      const isSelf = selfMember?.memberAccount === item?.memberAccount;
-      const isSelected = data?.mainVideoView?.memberInfo?.memberAccount === item?.memberAccount;
       return (
         <div key={item?.memberAccount} onClick={e => handleSelectMember(e, item)}>
-          {renderUserCard(item, isSelected, isSelf ? '我' : undefined)}
+          {renderMemberTemplate(item)}
         </div>
       );
     });

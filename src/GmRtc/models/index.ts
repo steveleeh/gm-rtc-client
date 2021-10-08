@@ -9,6 +9,9 @@ import { getImUserInfo, getImVideoConversationRoomInfoVOUsingPOST } from '@/serv
 import type { IGmRtc } from '../GmRtc';
 import type { BaseModel } from '../types';
 import { EMemberStatus } from '@/types/EMemberStatus';
+import type React from 'react';
+import type { ReactNode } from 'react';
+import type { IExtend } from '@/types/IExtend';
 
 export type Nullable<T> = T | null;
 
@@ -23,50 +26,56 @@ export interface StateType {
   client: Nullable<IGmRtc>;
   /** 会话id */
   conversationId: Nullable<number>;
-  /**  视频通话状态 */
+  /** 视频通话状态 */
   callState: ECallState;
-  /**  视频弹窗是否可见 */
+  /** 视频弹窗是否可见 */
   visible: boolean;
-  /**  房间信息 */
+  /** 房间信息 */
   roomId: Nullable<number>;
-  /**  应用标识 */
+  /** 应用标识 */
   sdkAppId: Nullable<number>;
   /** 用户标识 */
   userId: Nullable<string>;
   /** 用户签名 */
   userSig: Nullable<string>;
-  /**  房间成员（过滤已离开成员） */
+  /** 房间成员（过滤已离开成员） */
   members: IMembersInfo[];
-  /**  原始房间成员（未过滤已离开成员） */
+  /** 原始房间成员（未过滤已离开成员） */
   originMembers: IMembersInfo[];
-  /**  用户自己信息 */
+  /** 用户自己信息 */
   selfMember: Nullable<IMembersInfo>;
-  /**  选中的用户 */
+  /** 拓展的用户（用于右侧自定义用户卡片拓展） */
+  extraMembers: IMembersInfo[];
+  /** 选中的用户 */
   selectedMember: Nullable<IMembersInfo>;
-  /**  选中的用户 */
+  /** 主叫人（视频通话的发起者） */
   mainMember: Nullable<IMembersInfo>;
-  /**  当前用户主叫类型 */
+  /** 已经完成用户是否展示（已拒绝、已超时、已挂断用户默认不在右侧面板展示） */
+  finishedMemberVisible: boolean;
+  /** 当前用户主叫类型 */
   userCard: Nullable<ECallerUserCard>;
-  /**  拨打模式：（创建音视频时候定义的，和服务端一致） */
+  /** 拨打模式：（创建音视频时候定义的，和服务端一致） */
   callType: ECallType;
-  /**  页面视频模式（页面内定义的，比如点击切换语音按钮，就从视频模式变成音频模式） */
+  /** 页面视频模式（页面内定义的，比如点击切换语音按钮，就从视频模式变成音频模式） */
   videoType: ECallType;
-  /**  是否全屏 */
+  /** 是否全屏 */
   fullScreen: boolean;
-  /**  来源渠道 */
+  /** 来源渠道 */
   sourceName: Nullable<string>;
-  /**  面板是否展开 */
+  /** 面板是否展开 */
   expand: boolean;
-  /**  是否静音 */
+  /** 是否静音 */
   mute: boolean;
   /** 主视频视图 */
   mainVideoView: IVideoView;
   /** 右侧用户列表视图 */
   minorVideoViews: IVideoView[];
-  extend: Nullable<object>;
+  extend: Nullable<IExtend>;
   /** 通话时长: 毫秒 */
   time: number;
   [key: string]: any;
+  /** 右侧用户信息渲染模板 */
+  memberRenderTemplate: Nullable<(...args: any) => React.ReactNode | ReactNode>;
 }
 
 // 初始数据
@@ -83,6 +92,8 @@ const initialState = (): StateType => ({
   selfMember: null,
   selectedMember: null,
   mainMember: null,
+  extraMembers: [],
+  finishedMemberVisible: false,
   userCard: null,
   callType: ECallType.VIDEO,
   videoType: ECallType.VIDEO,
@@ -95,6 +106,7 @@ const initialState = (): StateType => ({
   extend: null,
   time: 0,
   originMembers: [],
+  memberRenderTemplate: null,
 });
 
 const Model: BaseModel<StateType> = {

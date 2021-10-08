@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { v4 as uuid } from 'uuid';
-import { useSelector, Model, useDispatch } from 'dva';
-import { Dispatch } from 'redux';
+import type { Model } from 'dva';
+import { useSelector, useDispatch } from 'dva';
+import type { Dispatch } from 'redux';
 
-export interface ConnectState {
-  [key: string]: Model;
-}
+export type ConnectState = Record<string, Model>;
 
 interface IInitialValue {
   /** 前缀 */

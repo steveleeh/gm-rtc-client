@@ -1,9 +1,5 @@
-import {
-  ResolvedProps,
-  GmRtcClientPluginContext,
-  GmRtcClientPluginFunc,
-  PluginEvent,
-} from '../types';
+import type { ResolvedProps, GmRtcClientPluginContext, GmRtcClientPluginFunc } from '../types';
+import { PluginEvent } from '../types';
 
 export const usePluginContainer = (props: ResolvedProps, context: GmRtcClientPluginContext) => {
   const { plugins: rawPlugins } = props;

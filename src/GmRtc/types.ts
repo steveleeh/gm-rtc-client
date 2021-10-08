@@ -3,7 +3,11 @@ import type { EffectsMapObject, SubscriptionsMapObject } from 'dva';
 import type React from 'react';
 import type { StateType } from './models';
 import type { IMessageToast } from './MessageToast';
-import type { ICreateClientParams, resolveProps } from '@/GmRtc/GmRtcClient';
+import type {
+  ICreateClientParams,
+  renderMemberTemplateFn,
+  resolveProps,
+} from '@/GmRtc/GmRtcClient';
 import type { IVideoChatMessage } from '@/types/VideoChatMessage';
 import type {
   Callback,
@@ -217,6 +221,7 @@ export interface GmRtcClientPluginContext extends GmRtcClientRef {
   forceUpdate: React.DispatchWithoutAction;
   /** 渲染其他信息 */
   renderOtherInfoPlugin: (node: React.ReactNode) => void;
+  renderMemberTemplatePlugin: (fn: renderMemberTemplateFn) => void;
 }
 
 export type GmRtcClientPluginFunc = {
