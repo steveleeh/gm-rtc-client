@@ -24,18 +24,8 @@ export function getImUserInfo() {
 /**
  * 创建音视频会话
  */
-// export function createVideoCallUsingPOST(params) {
-//   return request('/api/wjj-saas-system/saas/ImService/createVideoCall', {
-//     method: 'POST',
-//     data: params,
-//   });
-// }
-
-/**
- * 创建音视频会话
- */
 export function createVideoCallUsingPOST(params) {
-  return request('/api/wjj-saas-system/saas/ImService/getStewardSendVideoCallResult', {
+  return request('/api/wjj-saas-system/saas/ImService/createVideoCall', {
     method: 'POST',
     data: params,
   });

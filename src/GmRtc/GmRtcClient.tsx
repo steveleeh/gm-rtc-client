@@ -40,7 +40,9 @@ import {
   isNil,
   isNumber,
   isString,
-  pullAllBy,
+  pullAllWith,
+  isEqual,
+  sortBy,
 } from 'lodash-es';
 import type { MessageItemParams } from './MessageToast';
 import MessageToast, { EMessageLevel, MessageNoticeFrequency } from './MessageToast';
@@ -61,6 +63,7 @@ import { EKeyMember } from '@/types/EKeyMember';
 import { ECallAudio } from '@/types/ECallAudio';
 import { EMemberStatus } from '@/types/EMemberStatus';
 import gmLog from '@wjj/gm-log';
+import type { Comparator } from 'lodash';
 
 interface IBtnItem {
   name: string;
@@ -124,6 +127,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     const selected =
       getState()?.mainVideoView?.memberInfo?.memberAccount === userInfo?.memberAccount;
     const alias = isSelf ? '我' : undefined;
+    const filterKeys = [EMemberStatus.REJECT, EMemberStatus.TIMEOUT, EMemberStatus.HANG_UP];
+    if (filterKeys?.includes(userInfo?.memberStatus)) {
+      return null;
+    }
     return (
       <div
         className={classNames(styles.userCard, {
@@ -283,16 +290,16 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   }, []);
 
   /** 数据比较 */
-  const compareList = <T, K>(
+  const compareList = <T,>(
     oldList: T[],
     newList: T[],
-    iteratee: K,
+    comparator?: Comparator<T>,
   ): {
     add: T[];
     remove: T[];
   } => {
-    const add = pullAllBy(cloneDeep(newList), cloneDeep(oldList), iteratee);
-    const remove = pullAllBy(cloneDeep(oldList), cloneDeep(newList), iteratee);
+    const add = pullAllWith(cloneDeep(newList), cloneDeep(oldList), comparator);
+    const remove = pullAllWith(cloneDeep(oldList), cloneDeep(newList), comparator);
     return {
       add,
       remove,
@@ -348,12 +355,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const getAllMembers = useCallback<() => IMembersInfo[]>(() => {
     const mergeMembers = [...getState()?.members];
     const extraMembers = getState()?.extraMembers;
-    extraMembers.forEach(item => {
-      const index = findIndex(mergeMembers, o => o.memberAccount === item.memberAccount);
+    (extraMembers || []).forEach(item => {
+      const index = findIndex(mergeMembers, o => o.accountNo === item.accountNo);
       if (index === -1) {
         mergeMembers.push(item);
       }
     });
+    console.log('mergeMembers', mergeMembers);
     return mergeMembers;
   }, []);
 
@@ -368,6 +376,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 主视频视图 */
   const updateMainVideoView = async (params?: IUpdateVideoViewParams) => {
+    // 新选中的用户
     const { userId } = params || {};
     const mainVideoViewItem = getState()?.mainVideoView;
     const newVideoView: IVideoView = {
@@ -380,12 +389,15 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         getAllMembers(),
         o => o.memberAccount === mainVideoViewItem?.memberInfo?.memberAccount,
       );
+      // 当前主视图用户已经被移除
       if (isNil(memberInfo)) {
         // 停止原数据视频流
         if (mainVideoViewItem?.stream) {
           mainVideoViewItem.stream.stop();
         }
+        // 选择一个新的用户
         const defaultMember = getDefaultMember();
+        console.log('defaultMember', defaultMember);
         newVideoView.memberInfo = defaultMember;
         newVideoView.stream = getStreamByUserId(defaultMember?.memberAccount) as Stream;
       } else {
@@ -394,16 +406,14 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       }
     } else {
       const memberInfo = find(getAllMembers(), o => o.memberAccount === userId);
+      console.log('memberInfo', memberInfo);
       if (!memberInfo) {
         return;
-      }
-      // 停止主视频流
-      if (mainVideoViewItem?.stream) {
-        mainVideoViewItem.stream.stop();
       }
       newVideoView.memberInfo = memberInfo;
       newVideoView.stream = getStreamByUserId(memberInfo?.memberAccount) as Stream;
     }
+    console.log('newVideoView', newVideoView);
     // 更新视频流
     if (newVideoView.stream) {
       newVideoView.stream.stop();
@@ -422,29 +432,17 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 更新右侧用户列表视图 */
   const updateMinorVideoViews = async () => {
     const oldMinorVideoViews = getState()?.minorVideoViews || [];
-    // 主视频userId
-    const mainVideoUserId = getState()?.mainVideoView?.memberInfo?.memberAccount;
     const newMembers = getAllMembers();
     const newMinorMembers = (getState()?.minorVideoViews || []).map(o => o.memberInfo);
     // 新成员信息和旧视图数据进行比较
-    const compareRes = compareList(
-      newMinorMembers,
-      newMembers,
-      (o: IMembersInfo) => o.memberAccount,
-    );
+    const compareRes = compareList(newMinorMembers, newMembers, isEqual);
     const { add: addList, remove: removeList } = compareRes;
+    console.log('compareRes', compareRes);
     // 更新成员流信息
     const newMinorVideoViews = (oldMinorVideoViews || []).map(item => ({
       ...item,
       stream: getStreamByUserId(item.memberInfo?.memberAccount),
     }));
-    // 新增数据
-    addList.forEach(item => {
-      newMinorVideoViews.push({
-        memberInfo: item,
-        stream: getStreamByUserId(item?.memberAccount),
-      });
-    });
     // 删除数据
     removeList.forEach(item => {
       const index = findIndex(
@@ -458,12 +456,15 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       }
       newMinorVideoViews.splice(index, 1);
     });
-    // 不包主视频的成员列表
-    const otherVideoViews = newMinorVideoViews.filter(
-      item => item?.memberInfo?.memberAccount !== mainVideoUserId,
-    );
-    // 更新视频状态
-    for (const item of otherVideoViews) {
+    // 新增数据
+    addList.forEach(item => {
+      newMinorVideoViews.push({
+        memberInfo: item,
+        stream: getStreamByUserId(item?.memberAccount),
+      });
+    });
+    // 更新视频状
+    for (const item of newMinorVideoViews) {
       if (item.stream) {
         item.stream.stop();
         if (document.getElementById(`video-${item.memberInfo?.memberAccount}`)) {
@@ -471,6 +472,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         }
       }
     }
+    console.log('更新了minorVideoViews数据', newMinorVideoViews);
     await dispatch({
       type: `${namespace}/setState`,
       payload: {
@@ -482,9 +484,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 有关键人离开（直接解散退出） */
   const isUserLeave = () => {
     const originMembers = getState()?.originMembers || [];
-    const members = getAllMembers();
     // 用户列表为空说明所有用户都离开了
-    if (members.length === 0 || originMembers.length === 0) {
+    if (originMembers.length === 0) {
       return true;
     }
     const filterKeys = new Set([
@@ -530,8 +531,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       await leave(getCancelType());
       return;
     }
-    await updateMainVideoView(params);
     await updateMinorVideoViews();
+    await updateMainVideoView(params);
+    // await updateDefaultMember();
   };
 
   /** 进房成功事件 */
@@ -959,14 +961,19 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /**
    * 默认选中的用户
    */
-  const getDefaultMember = useCallback(
-    () =>
-      find(
-        filter(getAllMembers(), o => o.isKeyMember === EKeyMember.MAIN),
-        o => o.memberAccount !== getState()?.userId,
-      ),
-    [],
-  );
+  const getDefaultMember = useCallback(() => {
+    const members = getAllMembers();
+    console.log('getDefaultMember members', members);
+    const member = find(
+      filter(members, o => o.isKeyMember === EKeyMember.MAIN),
+      o => o.memberAccount !== getState()?.userId,
+    );
+    // 没有默认的关键人，就选中不是自己外的用户
+    if (!member) {
+      return find(members, o => o.memberAccount !== getState()?.userId);
+    }
+    return member;
+  }, []);
 
   /**
    * 是否忽略消息
@@ -1020,6 +1027,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         callType: params.callType,
         videoType: params.callType,
         userCard: params.callerUserCard,
+        extend: params.extend,
       },
     });
     await changeCallState(ECallState.ON_CALL);
@@ -1550,6 +1558,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
     </React.Fragment>
   );
+
+  console.log('minorVideoViews', data?.minorVideoViews);
 
   // 渲染右侧用户列表
   const renderMemberList = (data?.minorVideoViews || [])

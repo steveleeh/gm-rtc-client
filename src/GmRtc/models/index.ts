@@ -153,18 +153,23 @@ const Model: BaseModel<StateType> = {
         },
       );
       const userId = yield select((state: any) => state.imchat.userId);
-      if (!res || !Array.isArray(res.roomMembersInfo)) {
+      const roomMembersInfo = (res.roomMembersInfo || []).map((item, index) => ({
+        ...item,
+        sortIndex: index,
+      }));
+      if (!res || !Array.isArray(roomMembersInfo)) {
         return;
       }
-      const selfMemberInfo = find(res.roomMembersInfo, o => o.memberAccount === userId);
-      const filterKeys = new Set([
-        EMemberStatus.WAIT_CALL,
-        EMemberStatus.BE_CALLING,
-        EMemberStatus.CALLING,
-      ]);
+      const selfMemberInfo = find(roomMembersInfo, o => o.memberAccount === userId);
+      // const filterKeys = new Set([
+      //   EMemberStatus.WAIT_CALL,
+      //   EMemberStatus.BE_CALLING,
+      //   EMemberStatus.CALLING,
+      // ]);
       const params: any = {
-        members: (res.roomMembersInfo || []).filter(item => filterKeys.has(item.memberStatus)),
-        originMembers: res.roomMembersInfo || [],
+        // members: (roomMembersInfo || []).filter(item => filterKeys.has(item.memberStatus)),
+        members: roomMembersInfo || [],
+        originMembers: roomMembersInfo || [],
       };
       if (selfMemberInfo) {
         params.selfMember = selfMemberInfo;

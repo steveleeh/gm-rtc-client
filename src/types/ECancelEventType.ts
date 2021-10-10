@@ -1,5 +1,7 @@
 /* 取消音视频事件类型 */
 export enum ECancelEventType {
+  /** 邀请 */
+  INVITE = 2000,
   /* 取消 */
   CANCEL = 2001,
   /* 超时取消 */

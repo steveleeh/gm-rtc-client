@@ -15,4 +15,5 @@ export interface IExtend {
   phoneNo?: string;
   /** 关系类型 */
   relationType?: string;
+  [key: string]: any;
 }
