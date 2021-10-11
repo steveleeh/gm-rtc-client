@@ -42,7 +42,6 @@ import {
   isString,
   pullAllWith,
   isEqual,
-  sortBy,
 } from 'lodash-es';
 import type { MessageItemParams } from './MessageToast';
 import MessageToast, { EMessageLevel, MessageNoticeFrequency } from './MessageToast';
@@ -64,6 +63,7 @@ import { ECallAudio } from '@/types/ECallAudio';
 import { EMemberStatus } from '@/types/EMemberStatus';
 import gmLog from '@wjj/gm-log';
 import type { Comparator } from 'lodash';
+import { get } from 'lodash';
 
 interface IBtnItem {
   name: string;
@@ -355,13 +355,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const getAllMembers = useCallback<() => IMembersInfo[]>(() => {
     const mergeMembers = [...getState()?.members];
     const extraMembers = getState()?.extraMembers;
+    // 有相同的成员，剔除重复，优先使用members中的数据
     (extraMembers || []).forEach(item => {
-      const index = findIndex(mergeMembers, o => o.accountNo === item.accountNo);
+      const index = findIndex(mergeMembers, o => o.memberAccount === item.memberAccount);
       if (index === -1) {
         mergeMembers.push(item);
       }
     });
-    console.log('mergeMembers', mergeMembers);
     return mergeMembers;
   }, []);
 
@@ -373,113 +373,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const getMember = useCallback<(userId: string) => IMembersInfo | undefined>(userId => {
     return find(getAllMembers(), o => o.memberAccount === userId);
   }, []);
-
-  /** 主视频视图 */
-  const updateMainVideoView = async (params?: IUpdateVideoViewParams) => {
-    // 新选中的用户
-    const { userId } = params || {};
-    const mainVideoViewItem = getState()?.mainVideoView;
-    const newVideoView: IVideoView = {
-      memberInfo: undefined,
-      stream: undefined,
-    };
-    if (isNil(userId)) {
-      // 更新数据
-      const memberInfo = find(
-        getAllMembers(),
-        o => o.memberAccount === mainVideoViewItem?.memberInfo?.memberAccount,
-      );
-      // 当前主视图用户已经被移除
-      if (isNil(memberInfo)) {
-        // 停止原数据视频流
-        if (mainVideoViewItem?.stream) {
-          mainVideoViewItem.stream.stop();
-        }
-        // 选择一个新的用户
-        const defaultMember = getDefaultMember();
-        console.log('defaultMember', defaultMember);
-        newVideoView.memberInfo = defaultMember;
-        newVideoView.stream = getStreamByUserId(defaultMember?.memberAccount) as Stream;
-      } else {
-        newVideoView.memberInfo = memberInfo;
-        newVideoView.stream = getStreamByUserId(memberInfo.memberAccount) as Stream;
-      }
-    } else {
-      const memberInfo = find(getAllMembers(), o => o.memberAccount === userId);
-      console.log('memberInfo', memberInfo);
-      if (!memberInfo) {
-        return;
-      }
-      newVideoView.memberInfo = memberInfo;
-      newVideoView.stream = getStreamByUserId(memberInfo?.memberAccount) as Stream;
-    }
-    console.log('newVideoView', newVideoView);
-    // 更新视频流
-    if (newVideoView.stream) {
-      newVideoView.stream.stop();
-      if (document.getElementById('main-video')) {
-        await newVideoView.stream.play('main-video');
-      }
-    }
-    await dispatch({
-      type: `${namespace}/setState`,
-      payload: {
-        mainVideoView: newVideoView,
-      },
-    });
-  };
-
-  /** 更新右侧用户列表视图 */
-  const updateMinorVideoViews = async () => {
-    const oldMinorVideoViews = getState()?.minorVideoViews || [];
-    const newMembers = getAllMembers();
-    const newMinorMembers = (getState()?.minorVideoViews || []).map(o => o.memberInfo);
-    // 新成员信息和旧视图数据进行比较
-    const compareRes = compareList(newMinorMembers, newMembers, isEqual);
-    const { add: addList, remove: removeList } = compareRes;
-    console.log('compareRes', compareRes);
-    // 更新成员流信息
-    const newMinorVideoViews = (oldMinorVideoViews || []).map(item => ({
-      ...item,
-      stream: getStreamByUserId(item.memberInfo?.memberAccount),
-    }));
-    // 删除数据
-    removeList.forEach(item => {
-      const index = findIndex(
-        newMinorVideoViews,
-        o => o.memberInfo?.memberAccount === item?.memberAccount,
-      );
-      // 停止相关流播放
-      const { stream } = newMinorVideoViews[index];
-      if (stream) {
-        stream.stop();
-      }
-      newMinorVideoViews.splice(index, 1);
-    });
-    // 新增数据
-    addList.forEach(item => {
-      newMinorVideoViews.push({
-        memberInfo: item,
-        stream: getStreamByUserId(item?.memberAccount),
-      });
-    });
-    // 更新视频状
-    for (const item of newMinorVideoViews) {
-      if (item.stream) {
-        item.stream.stop();
-        if (document.getElementById(`video-${item.memberInfo?.memberAccount}`)) {
-          await item?.stream?.play?.(`video-${item.memberInfo?.memberAccount}`);
-        }
-      }
-    }
-    console.log('更新了minorVideoViews数据', newMinorVideoViews);
-    await dispatch({
-      type: `${namespace}/setState`,
-      payload: {
-        minorVideoViews: newMinorVideoViews,
-      },
-    });
-  };
 
   /** 有关键人离开（直接解散退出） */
   const isUserLeave = () => {
@@ -502,7 +395,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * 更新房间信息
    * @param roomId 房间号
    */
-  const updateRoomInfo = (roomId: number) => {
+  const updateRoomInfo = (roomId?: number) => {
     return dispatch({
       type: `${namespace}/getImRoomInfo`,
       payload: {
@@ -523,18 +416,140 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     return ECancelEventType.CANCEL;
   };
 
-  /** 更新视频视图 */
-  const updateVideoView = async (params?: IUpdateVideoViewParams) => {
-    const { roomId } = params || {};
-    await updateRoomInfo(roomId);
+  /** 更新房间号 */
+  const updateRoomId = useCallback((roomId: number) => {
+    return dispatch({
+      type: `${namespace}/setState`,
+      payload: {
+        roomId,
+      },
+    });
+  }, []);
+
+  /**
+   * 选中用户视频
+   * @param userId 用户imkey
+   */
+  const handleSelectVideoView = async (userId: string) => {
+    const oldMainVideoView = getState()?.mainVideoView;
+    // 相同的选择直接忽略
+    if (oldMainVideoView?.memberInfo?.memberAccount === userId) {
+      return;
+    }
+    // 新选择的用户信息
+    const memberInfo = find(getAllMembers(), o => o.memberAccount === userId);
+    const stream = getStreamByUserId(userId);
+    const newMainVideoView: IVideoView = {
+      memberInfo,
+      stream,
+    };
+    // 将原来主视图的视频在右侧面板播放
+    if (oldMainVideoView?.stream) {
+      oldMainVideoView?.stream.stop();
+      if (document.getElementById(`video-${oldMainVideoView?.memberInfo?.memberAccount}`)) {
+        await oldMainVideoView?.stream?.play?.(
+          `video-${oldMainVideoView?.memberInfo?.memberAccount}`,
+        );
+      }
+    }
+    // 播放新的视频
+    newMainVideoView?.stream?.stop();
+    newMainVideoView?.stream?.play('main-video');
+    await dispatch({
+      type: `${namespace}/setState`,
+      payload: {
+        mainVideoView: newMainVideoView,
+      },
+    });
+  };
+
+  /**
+   * 更新主视图和副视图数据
+   * 加锁：防止同时多次调用导致异常;
+   */
+  const updateVideoView = useLockFn(async () => {
+    // 原来主视频数据
+    const oldMainVideoView = getState()?.mainVideoView;
+    await updateRoomInfo();
     if (isUserLeave()) {
       await leave(getCancelType());
       return;
     }
-    await updateMinorVideoViews();
-    await updateMainVideoView(params);
-    // await updateDefaultMember();
-  };
+    const oldMembers = (getState()?.minorVideoViews || []).map(o => o.memberInfo);
+    const newMembers = getAllMembers();
+    // 新用户列表的map对象（减少后续遍历）
+    const newMembersMap = new Map();
+    newMembers.forEach(item => newMembersMap.set(item.memberAccount, item));
+    // 新成员信息和旧成员进行比较
+    const compareRes = compareList(
+      oldMembers,
+      newMembers,
+      (a, b) => a.memberAccount === b.memberAccount,
+    );
+    const { remove: removeList } = compareRes;
+    // 主视图用户（选中的用户）是否还存在
+    const isExistSelectMember =
+      !isNil(oldMainVideoView?.memberInfo?.memberAccount) &&
+      !isNil(newMembersMap.get(oldMainVideoView?.memberInfo?.memberAccount));
+    let newMainVideoView = oldMainVideoView;
+    if (!isExistSelectMember) {
+      // 主视图用户（选中的用户）被删除，停止相关视频
+      oldMainVideoView?.stream?.stop();
+      // 选出新的用户
+      const newMainMember = getDefaultMember();
+      const newMainStream = getStreamByUserId(newMainMember?.memberAccount);
+      newMainVideoView = {
+        memberInfo: newMainMember,
+        stream: newMainStream,
+      };
+    } else {
+      const newMainMember = oldMainVideoView?.memberInfo;
+      const newMainStream = getStreamByUserId(newMainMember?.memberAccount);
+      newMainVideoView = {
+        memberInfo: newMainMember,
+        stream: newMainStream,
+      };
+    }
+    // 播放新选中的用户视频
+    const newMainStream = newMainVideoView?.stream;
+    if (newMainStream) {
+      newMainStream?.stop();
+      newMainStream?.play('main-video');
+    }
+    // 删除数据的视频停止
+    removeList.forEach(item => {
+      // 停止相关流播放
+      const stream = getStreamByUserId(item?.memberAccount);
+      if (stream) {
+        stream.stop();
+      }
+    });
+    // 新增数据的视频播放（忽略已经选中的）
+    const filerAddList = (getAllMembers() || []).filter(
+      item => item?.memberAccount !== newMainVideoView.memberInfo?.memberAccount,
+    );
+    for (const item of filerAddList) {
+      const stream = getStreamByUserId(item.memberAccount);
+      if (stream) {
+        stream.stop();
+        if (document.getElementById(`video-${item.memberAccount}`)) {
+          await stream?.play?.(`video-${item.memberAccount}`);
+        }
+      }
+    }
+    // 同步数据
+    const newMinorVideoViews: IVideoView[] = (getAllMembers() || []).map<IVideoView>(item => ({
+      memberInfo: item,
+      stream: getStreamByUserId(item?.memberAccount),
+    }));
+    await dispatch({
+      type: `${namespace}/setState`,
+      payload: {
+        minorVideoViews: newMinorVideoViews,
+        mainVideoView: newMainVideoView,
+      },
+    });
+  });
 
   /** 进房成功事件 */
   const handleJoinSuccess = async () => {
@@ -962,17 +977,21 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * 默认选中的用户
    */
   const getDefaultMember = useCallback(() => {
-    const members = getAllMembers();
-    console.log('getDefaultMember members', members);
-    const member = find(
-      filter(members, o => o.isKeyMember === EKeyMember.MAIN),
-      o => o.memberAccount !== getState()?.userId,
-    );
-    // 没有默认的关键人，就选中不是自己外的用户
-    if (!member) {
-      return find(members, o => o.memberAccount !== getState()?.userId);
+    const members = getAllMembers() || [];
+    // 排除自己的用户
+    const otherMembers = filter(members, o => o.memberAccount !== getState()?.userId) || [];
+    // 关键人序号
+    const keyMemberIndex = findIndex(otherMembers, o => o?.isKeyMember === EKeyMember.MAIN);
+    // 存在关键人
+    if (keyMemberIndex !== -1) {
+      return otherMembers[keyMemberIndex];
     }
-    return member;
+    // 除了自己不存在其他用户，就默认选中自己
+    if (otherMembers.length === 0) {
+      return members[0];
+    }
+    // 选中第一个用户
+    return otherMembers[0];
   }, []);
 
   /**
@@ -1119,10 +1138,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await createRtcClient({
       roomId: msg.roomId,
     });
-    await updateVideoView({
-      roomId: msg.roomId,
-      userId: msg.sponsorImKey,
-    });
+    await updateRoomId(msg.roomId);
+    await updateVideoView();
+    await handleSelectVideoView(msg.sponsorImKey);
     await setMainMember(msg.sponsorImKey);
     if (isUserLeave()) {
       await leave(ECancelEventType.HANG_UP);
@@ -1343,9 +1361,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (memberInfo?.memberAccount === mainVideoViewItem?.memberInfo?.memberAccount) {
       return;
     }
-    await updateVideoView({
-      userId: memberInfo?.memberAccount,
-    });
+    // await updateVideoView({
+    //   userId: memberInfo?.memberAccount,
+    // });
+    await handleSelectVideoView(memberInfo?.memberAccount);
     debugLog('选中用户', memberInfo);
   };
 
@@ -1558,8 +1577,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
     </React.Fragment>
   );
-
-  console.log('minorVideoViews', data?.minorVideoViews);
 
   // 渲染右侧用户列表
   const renderMemberList = (data?.minorVideoViews || [])

@@ -8,7 +8,6 @@ import { ECallType } from '@/types/ECallType';
 import { getImUserInfo, getImVideoConversationRoomInfoVOUsingPOST } from '@/services';
 import type { IGmRtc } from '../GmRtc';
 import type { BaseModel } from '../types';
-import { EMemberStatus } from '@/types/EMemberStatus';
 import type React from 'react';
 import type { ReactNode } from 'react';
 import type { IExtend } from '@/types/IExtend';
@@ -46,8 +45,6 @@ export interface StateType {
   selfMember: Nullable<IMembersInfo>;
   /** 拓展的用户（用于右侧自定义用户卡片拓展） */
   extraMembers: IMembersInfo[];
-  /** 选中的用户 */
-  selectedMember: Nullable<IMembersInfo>;
   /** 主叫人（视频通话的发起者） */
   mainMember: Nullable<IMembersInfo>;
   /** 已经完成用户是否展示（已拒绝、已超时、已挂断用户默认不在右侧面板展示） */
@@ -90,7 +87,6 @@ const initialState = (): StateType => ({
   userSig: null,
   members: [],
   selfMember: null,
-  selectedMember: null,
   mainMember: null,
   extraMembers: [],
   finishedMemberVisible: false,
