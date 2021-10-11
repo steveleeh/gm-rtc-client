@@ -30,11 +30,6 @@ export interface BaseModel<S = any, A extends Action = AnyAction> {
   subscriptions?: SubscriptionsMapObject;
 }
 
-export interface IUpdateVideoViewParams {
-  roomId?: number;
-  userId?: string;
-}
-
 export interface IDevice {
   /** 麦克风 */
   microphone: boolean;
@@ -189,7 +184,7 @@ export interface GmRtcClientRef {
   /** 获取消息提示实例 */
   messageToast: IMessageToast;
   /** 更新视频视图 */
-  updateVideoView: (params?: IUpdateVideoViewParams) => Promise<void>;
+  updateVideoView: () => Promise<void>;
   /** 离开事件 */
   onLeave: () => Promise<void>;
   /** 创建通话消息 */

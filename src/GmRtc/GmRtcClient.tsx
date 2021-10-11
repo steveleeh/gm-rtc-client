@@ -9,13 +9,7 @@ import React, {
 } from 'react';
 import { useCountDown, useLockFn } from 'ahooks';
 import Draggable from 'react-draggable';
-import type {
-  GmRtcClientRef,
-  IDevice,
-  IGmRtcProps,
-  IUpdateVideoViewParams,
-  Nullable,
-} from '@/GmRtc/types';
+import type { GmRtcClientRef, IDevice, IGmRtcProps, Nullable } from '@/GmRtc/types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
 import type { LocalStream, RemoteStreamInfo, RemoteUserInfo, RtcError, Stream } from 'trtc-js-sdk';
@@ -41,7 +35,6 @@ import {
   isNumber,
   isString,
   pullAllWith,
-  isEqual,
 } from 'lodash-es';
 import type { MessageItemParams } from './MessageToast';
 import MessageToast, { EMessageLevel, MessageNoticeFrequency } from './MessageToast';
@@ -63,7 +56,6 @@ import { ECallAudio } from '@/types/ECallAudio';
 import { EMemberStatus } from '@/types/EMemberStatus';
 import gmLog from '@wjj/gm-log';
 import type { Comparator } from 'lodash';
-import { get } from 'lodash';
 
 interface IBtnItem {
   name: string;
@@ -1160,7 +1152,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     GmNotification.warn(EMessageText.USER_CANCEL);
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
+      return;
     }
+    await updateVideoView();
   };
 
   /** 超时取消 */
@@ -1173,7 +1167,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     GmNotification.warn(EMessageText.USER_CANCEL);
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
+      return;
     }
+    await updateVideoView();
   };
 
   /** 挂断 */
@@ -1186,7 +1182,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     GmNotification.warn(EMessageText.USER_HANG_UP);
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
+      return;
     }
+    await updateVideoView();
   };
 
   /** 拒绝 */
@@ -1212,7 +1210,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     GmNotification.warn(EMessageText.USER_CANCEL);
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
+      return;
     }
+    await updateVideoView();
   };
 
   /** 音视频切换 */
@@ -1361,9 +1361,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (memberInfo?.memberAccount === mainVideoViewItem?.memberInfo?.memberAccount) {
       return;
     }
-    // await updateVideoView({
-    //   userId: memberInfo?.memberAccount,
-    // });
     await handleSelectVideoView(memberInfo?.memberAccount);
     debugLog('选中用户', memberInfo);
   };
