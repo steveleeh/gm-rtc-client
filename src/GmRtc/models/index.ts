@@ -8,8 +8,6 @@ import { ECallType } from '@/types/ECallType';
 import { getImUserInfo, getImVideoConversationRoomInfoVOUsingPOST } from '@/services';
 import type { IGmRtc } from '../GmRtc';
 import type { BaseModel } from '../types';
-import type React from 'react';
-import type { ReactNode } from 'react';
 
 export type Nullable<T> = T | null;
 
@@ -66,12 +64,11 @@ export interface StateType {
   mainVideoView: IVideoView;
   /** 右侧用户列表视图 */
   minorVideoViews: IVideoView[];
+  /** 特殊字段（用来存储业务相关的数据） */
   extend: Nullable<string>;
   /** 通话时长: 毫秒 */
   time: number;
   [key: string]: any;
-  /** 右侧用户信息渲染模板 */
-  memberRenderTemplate: Nullable<(...args: any) => React.ReactNode | ReactNode>;
 }
 
 // 初始数据
@@ -101,7 +98,6 @@ const initialState = (): StateType => ({
   extend: null,
   time: 0,
   originMembers: [],
-  memberRenderTemplate: null,
 });
 
 const Model: BaseModel<StateType> = {
@@ -156,13 +152,7 @@ const Model: BaseModel<StateType> = {
         return;
       }
       const selfMemberInfo = find(roomMembersInfo, o => o.memberAccount === userId);
-      // const filterKeys = new Set([
-      //   EMemberStatus.WAIT_CALL,
-      //   EMemberStatus.BE_CALLING,
-      //   EMemberStatus.CALLING,
-      // ]);
       const params: any = {
-        // members: (roomMembersInfo || []).filter(item => filterKeys.has(item.memberStatus)),
         members: roomMembersInfo || [],
         originMembers: roomMembersInfo || [],
       };
