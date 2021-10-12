@@ -48,7 +48,7 @@ import {
   createVideoCallUsingPOST,
   getImUserInfo,
 } from '@/services/index';
-import { CallerUserCardText } from '@/types/ECallerUserCard';
+import { CallerUserCardText, ECallerUserCard } from '@/types/ECallerUserCard';
 import type { IImCallCreateResponse } from '@wjj/gm-type/dist/models/saas/im-call-create-response.model';
 import { ECancelEventType } from '@/types/ECancelEventType';
 import { EKeyMember } from '@/types/EKeyMember';
@@ -337,6 +337,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return client.getMembers().get(userId as string);
     }
     return null;
+  }, []);
+
+  /** 通过userId获取流 */
+  const getMemberInfoByUserId = useCallback((userId: string | undefined) => {
+    return find(getAllMembers(), o => o.memberAccount === userId);
   }, []);
 
   /**
@@ -645,9 +650,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     const memberInfo = find(getAllMembers(), o => o.memberAccount === evt.userId);
     if (memberInfo) {
       messageToast.show({
-        content: `${memberInfo.nickname}（${
+        content: `${memberInfo.nickname}【${
           CallerUserCardText[memberInfo.userCard as number]
-        }）加入房间`,
+        }】加入房间`,
         level: EMessageLevel.MIDDLE,
       });
       debugLog(
@@ -1149,7 +1154,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     await pluginContainer?.onCancelMessage?.(msg);
-    GmNotification.warn(EMessageText.USER_CANCEL);
+    const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
+    GmNotification.warn(
+      `${memberInfo.nickname}【${CallerUserCardText[memberInfo?.userCard]}】已取消`,
+    );
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
       return;
@@ -1164,7 +1172,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     await pluginContainer?.onTimeoutCancelMessage?.(msg);
-    GmNotification.warn(EMessageText.USER_CANCEL);
+    const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
+    GmNotification.warn(
+      `${memberInfo.nickname}【${CallerUserCardText[memberInfo?.userCard]}】超时取消`,
+    );
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
       return;
@@ -1179,7 +1190,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     await pluginContainer?.onHangUpMessage?.(msg);
-    GmNotification.warn(EMessageText.USER_HANG_UP);
+    const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
+    GmNotification.warn(
+      `${memberInfo.nickname}【${CallerUserCardText[memberInfo?.userCard]}】已挂断`,
+    );
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
       return;
@@ -1194,10 +1208,16 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     await pluginContainer?.onRejectMessage?.(msg);
-    GmNotification.warn(EMessageText.USER_REJECT);
+    const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
+    console.log('memberInfo', memberInfo, msg);
+    GmNotification.warn(
+      `${memberInfo.nickname}【${CallerUserCardText[memberInfo?.userCard]}】已拒绝`,
+    );
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
+      return;
     }
+    await updateVideoView();
   };
 
   /** 超时拒绝 */
@@ -1207,7 +1227,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     await pluginContainer?.onTimeoutRejectMessage?.(msg);
-    GmNotification.warn(EMessageText.USER_CANCEL);
+    const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
+    GmNotification.warn(
+      `${memberInfo.nickname}【${CallerUserCardText[memberInfo?.userCard]}】超时拒绝`,
+    );
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);
       return;
@@ -1222,7 +1245,10 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return;
     }
     await pluginContainer?.onSwitchMessage?.(msg);
-    GmNotification.success(EMessageText.SWITCH_TO_AUDIO_SUCCESS);
+    const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
+    GmNotification.warn(
+      `${memberInfo.nickname}【${CallerUserCardText[memberInfo?.userCard]}】摄像头已关闭`,
+    );
   };
 
   /** 进房 */
