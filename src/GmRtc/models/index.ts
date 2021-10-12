@@ -10,7 +10,6 @@ import type { IGmRtc } from '../GmRtc';
 import type { BaseModel } from '../types';
 import type React from 'react';
 import type { ReactNode } from 'react';
-import type { IExtend } from '@/types/IExtend';
 
 export type Nullable<T> = T | null;
 
@@ -67,7 +66,7 @@ export interface StateType {
   mainVideoView: IVideoView;
   /** 右侧用户列表视图 */
   minorVideoViews: IVideoView[];
-  extend: Nullable<IExtend>;
+  extend: Nullable<string>;
   /** 通话时长: 毫秒 */
   time: number;
   [key: string]: any;

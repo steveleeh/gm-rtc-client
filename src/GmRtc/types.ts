@@ -17,6 +17,7 @@ import type {
   RemoteUserInfo,
   RtcError,
 } from 'trtc-js-sdk';
+import type { IMembersInfo } from '@wjj/gm-type/dist/models/saas/members-info.model';
 
 export type Nullable<T> = T | null;
 
@@ -52,6 +53,8 @@ export interface IGmRtcProps {
 export enum PluginEvent {
   /** 初始化 */
   INITIAL = 'onInitial',
+  /** 初始化状态 */
+  INITIAL_STATE = 'onInitialState',
   /** 离开 */
   LEAVE = 'onLeave',
   /** 计时 */
@@ -128,6 +131,7 @@ export enum PluginEvent {
 
 export interface PluginRtcEventMap {
   [PluginEvent.INITIAL]: void;
+  [PluginEvent.INITIAL_STATE]: void;
   [PluginEvent.LEAVE]: void;
   [PluginEvent.TICK]: number;
   [PluginEvent.CHANGE_STATE]: number;
@@ -185,6 +189,8 @@ export interface GmRtcClientRef {
   messageToast: IMessageToast;
   /** 更新视频视图 */
   updateVideoView: () => Promise<void>;
+  /** 通过userId成员信息 */
+  getMemberInfoByUserId: (userId: string | undefined) => IMembersInfo | undefined;
   /** 离开事件 */
   onLeave: () => Promise<void>;
   /** 创建通话消息 */

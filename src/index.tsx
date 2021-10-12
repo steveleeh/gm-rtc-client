@@ -2,7 +2,6 @@ import { GmRtcClient } from './GmRtc/GmRtcClient';
 
 export * from './GmRtc/types';
 export * from './GmRtc/plugins';
-export * from './types/EImageUrl';
-export * from './types/EMemberStatus';
-export * from './types/ECallerUserCard';
+export * from './types';
+
 export default GmRtcClient;
