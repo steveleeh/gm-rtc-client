@@ -671,9 +671,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     const memberInfo = getMember(evt.userId);
     if (memberInfo) {
       messageToast.show({
-        content: `${memberInfo?.nickname}（${
+        content: `${memberInfo?.nickname}【${
           CallerUserCardText[memberInfo.userCard as number]
-        }）离开房间`,
+        }】离开房间`,
         level: EMessageLevel.MIDDLE,
       });
       debugLog(

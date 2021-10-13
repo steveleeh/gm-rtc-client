@@ -73,7 +73,7 @@ export function formatDuration(milliseconds) {
   const second = duration.seconds();
   const minute = duration.minutes();
   const hour = duration.hours();
-  return `${hour > 9 ? hour : `0${hour}`}:${minute > 10 ? minute : `0${minute}`}:${
+  return `${hour > 9 ? hour : `0${hour}`}:${minute > 9 ? minute : `0${minute}`}:${
     second > 9 ? second : `0${second}`
   }`;
 }

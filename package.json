@@ -1,7 +1,7 @@
 {
   "private": false,
   "name": "@wjj/gm-rtc-client",
-  "version": "1.0.33",
+  "version": "1.0.36",
   "scripts": {
     "start": "dumi dev",
     "docs:build": "dumi build",
@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@wjj/gm-antd": "^1.0.3",
-    "@wjj/gm-log": "^1.0.2",
+    "@wjj/gm-log": "^1.0.3",
     "@wjj/gm-request-saas": "^1.0.3",
     "@wjj/gm-type": "^1.0.1",
     "ahooks": "^2.10.6",
