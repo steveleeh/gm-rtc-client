@@ -1258,7 +1258,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await pluginContainer?.onEnterRoomMessage?.(msg);
     const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
     GmNotification.success(
-      `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】已进房`,
+      `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】加入房间`,
     );
     await updateVideoView();
   };
