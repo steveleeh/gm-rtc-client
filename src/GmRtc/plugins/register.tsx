@@ -1,3 +1,10 @@
+/*
+ * @Author: lihanlei
+ * @Date: 2021-06-27 16:41:33
+ * @LastEditTime: 2021-10-19 14:19:06
+ * @LastEditors: lihanlei
+ * @Description: 注册插件（传入初始化相关数据）
+ */
 import type { GmRtcClientPlugin } from '../types';
 
 export interface RegisterPluginOption {

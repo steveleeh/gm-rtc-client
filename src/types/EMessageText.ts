@@ -2,7 +2,7 @@
 export enum EMessageText {
   WAIT_CONNECT = '正在等待对方接收邀请',
   JOIN_SUCCESS = '进入房间成功',
-  JOIN_ERROR = '进入房间失败',
+  JOIN_ERROR = '进入房间失败，请重新呼叫',
   SELF_ACCEPT = '通话已接受',
   SELF_CANCEL = '通话已取消',
   SELF_REJECT = '通话已拒绝',

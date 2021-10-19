@@ -1,3 +1,10 @@
+/*
+ * @Author: lihanlei
+ * @Date: 2021-06-27 16:41:33
+ * @LastEditTime: 2021-10-19 15:32:31
+ * @LastEditors: lihanlei
+ * @Description: Rtc客户端
+ */
 import type { MouseEventHandler } from 'react';
 import React, {
   useCallback,
@@ -9,11 +16,25 @@ import React, {
 } from 'react';
 import { useCountDown, useLockFn } from 'ahooks';
 import Draggable from 'react-draggable';
-import type { GmRtcClientRef, IDevice, IGmRtcProps, Nullable } from '@/GmRtc/types';
+import type {
+  GmRtcClientRef,
+  IDevice,
+  IGmRtcProps,
+  Nullable,
+  supportBrowserType,
+} from '@/GmRtc/types';
 import { ResizableBox } from 'react-resizable';
 import classNames from 'classnames';
-import type { LocalStream, RemoteStreamInfo, RemoteUserInfo, RtcError, Stream } from 'trtc-js-sdk';
+import type {
+  LocalStream,
+  RemoteStreamInfo,
+  RemoteUserInfo,
+  RtcError,
+  Stream,
+  NetworkQuality,
+} from 'trtc-js-sdk';
 import { getCameras, getMicrophones } from 'trtc-js-sdk';
+import Bowser from 'bowser';
 import styles from './index.less';
 import UsePrivateModel from './usePrivateModel';
 import type { IVideoView, StateType } from './models';
@@ -90,7 +111,7 @@ const prefix = 'gm-rtc';
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { style, className, device, appName } = props;
+  const { style, className, device, appName, supportBrowser, supportBrowserText } = props;
 
   const { namespace, data, dispatch, getState } = UsePrivateModel<StateType | null>({
     prefix: 'videochat',
@@ -107,6 +128,47 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       )}
     </div>
   );
+
+  /**
+   * @description: 是否是支持列表中的浏览器
+   * @param {supportBrowserType} supportBrowsers 支持的浏览器类型
+   * @return {*}
+   */
+  const isSupportBrowser = (supportBrowsers: supportBrowserType): boolean => {
+    if (!supportBrowsers) {
+      return true;
+    }
+    const browserName = Bowser.getParser(window.navigator.userAgent).getBrowserName();
+    if (isString(supportBrowsers)) {
+      return browserName === supportBrowsers;
+    }
+    if (Array.isArray(supportBrowsers)) {
+      return supportBrowsers.some(item => item === browserName);
+    }
+    if (supportBrowsers instanceof RegExp) {
+      return supportBrowsers.test(browserName);
+    }
+    return true;
+  };
+
+  /**
+   * @description: 检查浏览器是否支持
+   * @param {*}
+   * @return {*}
+   */
+  const checkSupportBrowser = () => {
+    const isSupport = isSupportBrowser(supportBrowser);
+    // 有错误文案，就展示错误文案
+    if (!isSupport && !!supportBrowserText) {
+      if (isString(supportBrowser)) {
+        GmNotification.warn(supportBrowserText as string);
+      } else {
+        GmNotification.warn({
+          message: supportBrowserText,
+        });
+      }
+    }
+  };
 
   /**
    * 默认渲染用户卡片模板
@@ -153,6 +215,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 上报日志 */
   const debugLog = useCallback((...args: any) => {
     const params: string[] = [];
+    const { conversationId, roomId } = getState();
     // eslint-disable-next-line no-plusplus
     for (let i = 0, len = args.length; i < len; i++) {
       try {
@@ -162,6 +225,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         console.warn('debugLog parse error', args[i]);
       }
     }
+
+    params.push(`conversationId=${conversationId}`);
+    params.push(`roomId=${roomId}`);
 
     const date = new Date();
     gmLog.info({
@@ -276,9 +342,17 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 音视频计时消息id
   const videoTimeToastId = useRef<Nullable<string>>(null);
 
-  /** 插件初始化生命周期 */
-  useEffect(() => {
+  /**
+   * 初始化配置
+   */
+  const handleInitial = useCallback(() => {
     pluginContainer?.onInitial?.();
+    checkSupportBrowser();
+  }, []);
+
+  /** 初始化生命周期 */
+  useEffect(() => {
+    handleInitial();
   }, []);
 
   /** 数据比较 */
@@ -452,8 +526,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       }
     }
     // 播放新的视频
-    newMainVideoView?.stream?.stop();
-    newMainVideoView?.stream?.play('main-video');
+    if (newMainVideoView?.stream) {
+      newMainVideoView?.stream?.stop?.();
+      newMainVideoView?.stream?.play?.('main-video');
+    }
+
     await dispatch({
       type: `${namespace}/setState`,
       payload: {
@@ -471,6 +548,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     const oldMainVideoView = getState()?.mainVideoView;
     await updateRoomInfo();
     if (isUserLeave()) {
+      debugLog('有关键人离开', getState()?.originMembers);
       await leave(getCancelType());
       return;
     }
@@ -512,8 +590,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     // 播放新选中的用户视频
     const newMainStream = newMainVideoView?.stream;
     if (newMainStream) {
-      newMainStream?.stop();
-      newMainStream?.play('main-video');
+      newMainStream?.stop?.();
+      newMainStream?.play?.('main-video');
     }
     // 删除数据的视频停止
     removeList.forEach(item => {
@@ -626,23 +704,40 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     debugLog('视频流推送失败事件', error);
   };
 
-  /** 不可恢复错误后 */
-  const handleError = (error: any) => {
-    debugLog('不可恢复错误后', error);
-    const errorCode = error.getCode();
+  /**
+   * @description: 客户端错误事件
+   * @param {RtcError} error 错误
+   * @return {*}
+   */
+  const handleClientError = (error: RtcError) => {
+    const errorCode = error.getCode() as unknown as number;
+    debugLog('handleClientError', errorCode, error);
+    console.log('handleClientError', error);
+  };
+
+  /**
+   * @description: 流错误事件
+   * @param {RtcError} error
+   * @return {*}
+   */
+  const handleStreamError = (error: RtcError) => {
+    const errorCode = error.getCode() as unknown as number;
+    debugLog('handleStreamError', errorCode, error);
+    console.log('handleStreamError', error);
     if (errorCode === 0x4043) {
       // 自动播放受限，引导用户手势操作并调用 stream.resume 恢复音视频播放
       // 参考：https://trtc-1252463788.file.myqcloud.com/web/docs/module-ErrorCode.html#.PLAY_NOT_ALLOWED
     } else if (errorCode === 0x4044) {
       // 媒体设备被拔出后自动恢复失败，参考：https://trtc-1252463788.file.myqcloud.com/web/docs/module-ErrorCode.html#.DEVICE_AUTO_RECOVER_FAILED
+      GmNotification.error('麦克风/摄像头异常，请检查麦克风');
     }
   };
 
   /** 用户被踢出房间 */
   const handleClientBanned = () => {
-    debugLog('设备已在其他端登录');
-    GmNotification.error('设备已在其他端登录');
-    window.location.reload();
+    debugLog('用户被踢出房间');
+    // GmNotification.error('设备已在其他端登录');
+    // window.location.reload();
   };
 
   /** 远端用户进房 */
@@ -676,6 +771,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         }】离开房间`,
         level: EMessageLevel.MIDDLE,
       });
+      GmNotification.warn(
+        `${memberInfo?.nickname}【${CallerUserCardText[memberInfo.userCard as number]}】离开房间`,
+      );
       debugLog(
         `${memberInfo?.nickname}（${CallerUserCardText[memberInfo.userCard as number]}）离开房间`,
       );
@@ -726,8 +824,22 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     debugLog('远端流更新', evt);
   };
 
+  /**
+   * 网络质量事件
+   * @param evt 网络质量结果
+   */
+  const handleNetworkQuality = (evt: NetworkQuality) => {
+    if (evt.downlinkNetworkQuality >= 4 || evt.uplinkNetworkQuality >= 4) {
+      messageToast.show({
+        content: '当前网络不佳',
+        level: EMessageLevel.MIDDLE,
+        time: 2000,
+      });
+    }
+  };
+
   /** 网络断开 */
-  const handleBadNetworkQuality = async () => {
+  const handleDisconnectNetworkQuality = async () => {
     GmNotification.warn(EMessageText.NETWORK_ERROR);
     debugLog('网络断开');
     await leave(ECancelEventType.CANCEL);
@@ -760,24 +872,27 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   /** 事件处理 */
   const [eventHandler] = useState<IEventHandler>(
-    new EventHandler({
-      [RTCEvent.JOIN_SUCCESS]: handleJoinSuccess,
-      [RTCEvent.JOIN_ERROR]: handleJoinError,
-      [RTCEvent.INITIALIZE_SUCCESS]: handleInitializeSuccess,
-      [RTCEvent.INITIALIZE_ERROR]: handleInitializeError,
-      [RTCEvent.PLAYER_STATE_CHANGED]: handlePlayerStateChange,
-      [RTCEvent.PUBLISH_SUCCESS]: handlePublishSuccess,
-      [RTCEvent.PUBLISH_ERROR]: handlePublishError,
-      [RTCEvent.ERROR]: handleError,
-      [RTCEvent.CLIENT_BANNED]: handleClientBanned,
-      [RTCEvent.PEER_JOIN]: handlePeerJoin,
-      [RTCEvent.PEER_LEAVE]: handlePeerLeave,
-      [RTCEvent.STREAM_ADDED]: handleStreamAdd,
-      [RTCEvent.STREAM_SUBSCRIBED]: handleStreamSubscribed,
-      [RTCEvent.STREAM_REMOVED]: handleStreamRemove,
-      [RTCEvent.STREAM_UPDATED]: handleStreamUpdate,
-      [RTCEvent.BadNetworkQuality]: handleBadNetworkQuality,
-    }),
+    () =>
+      new EventHandler({
+        [RTCEvent.JOIN_SUCCESS]: handleJoinSuccess,
+        [RTCEvent.JOIN_ERROR]: handleJoinError,
+        [RTCEvent.INITIALIZE_SUCCESS]: handleInitializeSuccess,
+        [RTCEvent.INITIALIZE_ERROR]: handleInitializeError,
+        [RTCEvent.PLAYER_STATE_CHANGED]: handlePlayerStateChange,
+        [RTCEvent.PUBLISH_SUCCESS]: handlePublishSuccess,
+        [RTCEvent.PUBLISH_ERROR]: handlePublishError,
+        [RTCEvent.CLIENT_ERROR]: handleClientError,
+        [RTCEvent.STREAM_ERROR]: handleStreamError,
+        [RTCEvent.CLIENT_BANNED]: handleClientBanned,
+        [RTCEvent.PEER_JOIN]: handlePeerJoin,
+        [RTCEvent.PEER_LEAVE]: handlePeerLeave,
+        [RTCEvent.STREAM_ADDED]: handleStreamAdd,
+        [RTCEvent.STREAM_SUBSCRIBED]: handleStreamSubscribed,
+        [RTCEvent.STREAM_REMOVED]: handleStreamRemove,
+        [RTCEvent.STREAM_UPDATED]: handleStreamUpdate,
+        [RTCEvent.NetworkQuality]: handleNetworkQuality,
+        [RTCEvent.DisconnectNetworkQuality]: handleDisconnectNetworkQuality,
+      }),
   );
 
   /** 初始化数据 */
@@ -1126,6 +1241,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       GmNotification.error(
         '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
       );
+      debugLog(
+        '浏览器获取不到摄像头/麦克风设备，请检查设备连接并且确保系统允许当前浏览器访问摄像头/麦克风',
+      );
       console.warn(e);
       await leave(ECancelEventType.CANCEL);
       return;
@@ -1138,6 +1256,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await handleSelectVideoView(msg.sponsorImKey);
     await setMainMember(msg.sponsorImKey);
     if (isUserLeave()) {
+      debugLog('有关键人离开', getState()?.originMembers);
       await leave(ECancelEventType.HANG_UP);
     } else {
       // 设置拨打状态
@@ -1207,7 +1326,6 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onRejectMessage?.(msg);
     const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
-    console.log('memberInfo', memberInfo, msg);
     GmNotification.warn(
       `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】已拒绝`,
     );
@@ -1292,7 +1410,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     if (isNumber(eventType)) {
       try {
-        await cancelVideoCall(eventType);
+        cancelVideoCall(eventType);
       } catch (e) {
         console.warn(e);
       }
@@ -1435,11 +1553,12 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       content: EMessageText.SWITCH_AUDIO,
       level: EMessageLevel.MIDDLE,
     });
+    const { userCard, conversationId, roomId } = getState?.() || {};
     await audioVideoSwitchTypeUsingPOST({
       callType: ECallType.AUDIO,
-      callerUserCard: getState()?.userCard,
-      conversationId: getState()?.conversationId,
-      roomId: getState()?.roomId,
+      callerUserCard: userCard,
+      conversationId,
+      roomId,
     });
     debugLog('切换语音通话');
   };
@@ -1708,11 +1827,18 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 });
 
 export function resolveProps(props: IGmRtcProps) {
-  const { plugins = [], device = true } = props;
+  const {
+    plugins = [],
+    device = true,
+    supportBrowser = ['Chrome'],
+    supportBrowserText = '当前浏览器不适配，建议使用谷歌浏览器',
+  } = props;
 
   return {
     ...props,
     device,
     plugins,
+    supportBrowser,
+    supportBrowserText,
   };
 }

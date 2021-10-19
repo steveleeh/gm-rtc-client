@@ -3567,6 +3567,11 @@ boolbase@^1.0.0, boolbase@~1.0.0:
   resolved "https://registry.npm.taobao.org/boolbase/download/boolbase-1.0.0.tgz#68dff5fbe60c51eb37725ea9e3ed310dcc1e776e"
   integrity sha1-aN/1++YMUes3cl6p4+0xDcwed24=
 
+bowser@^2.11.0:
+  version "2.11.0"
+  resolved "https://registry.npm.taobao.org/bowser/download/bowser-2.11.0.tgz?cache=0&sync_timestamp=1599897434141&other_urls=https%3A%2F%2Fregistry.npm.taobao.org%2Fbowser%2Fdownload%2Fbowser-2.11.0.tgz#5ca3c35757a7aa5771500c70a73a9f91ef420a8f"
+  integrity sha1-XKPDV1enqldxUAxwpzqfke9CCo8=
+
 boxen@^3.0.0:
   version "3.2.0"
   resolved "https://registry.nlark.com/boxen/download/boxen-3.2.0.tgz#fbdff0de93636ab4450886b6ff45b92d098f45eb"
@@ -14235,10 +14240,10 @@ trough@^1.0.0:
   resolved "https://registry.nlark.com/trough/download/trough-1.0.5.tgz?cache=0&sync_timestamp=1620719076073&other_urls=https%3A%2F%2Fregistry.nlark.com%2Ftrough%2Fdownload%2Ftrough-1.0.5.tgz#b8b639cefad7d0bb2abd37d433ff8293efa5f406"
   integrity sha1-uLY5zvrX0LsqvTfUM/+Ck++l9AY=
 
-trtc-js-sdk@^4.10.3:
-  version "4.11.0"
-  resolved "https://registry.nlark.com/trtc-js-sdk/download/trtc-js-sdk-4.11.0.tgz#8cd0f389dd9daf89788d34e6162dbc2375852b6e"
-  integrity sha1-jNDzid2dr4l4jTTmFi28I3WFK24=
+trtc-js-sdk@^4.11.7:
+  version "4.11.7"
+  resolved "https://registry.npmmirror.com/trtc-js-sdk/download/trtc-js-sdk-4.11.7.tgz#464424364d4b1bd06fb3878635494f439dd41126"
+  integrity sha1-RkQkNk1LG9Bvs4eGNUlPQ53UESY=
 
 ts-loader@^8.0.7:
   version "8.3.0"

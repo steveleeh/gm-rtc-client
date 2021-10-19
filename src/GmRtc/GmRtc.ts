@@ -53,6 +53,10 @@ export enum RTCEvent {
   PUBLISH_ERROR = 'publish-error',
   /** 不可恢复错误后 */
   ERROR = 'error',
+  /** 不可恢复错误后 */
+  CLIENT_ERROR = 'client-error',
+  /** 不可恢复错误后 */
+  STREAM_ERROR = 'stream-error',
   /** 用户被踢出房间 */
   CLIENT_BANNED = 'client-banned',
   /** 远端用户进房通知 */
@@ -78,7 +82,7 @@ export enum RTCEvent {
   /** 网络质量统计数据事件 */
   NetworkQuality = 'network-quality',
   /** 网络断开事件 */
-  BadNetworkQuality = 'bad-network-quality',
+  DisconnectNetworkQuality = 'disconnect-network-quality',
 }
 
 export interface RTCEventMap extends StreamEventMap, ClientEventMap {
@@ -88,7 +92,9 @@ export interface RTCEventMap extends StreamEventMap, ClientEventMap {
   [RTCEvent.INITIALIZE_ERROR]: DOMException;
   [RTCEvent.PUBLISH_SUCCESS]: LocalStream;
   [RTCEvent.PUBLISH_ERROR]: RtcError;
-  [RTCEvent.BadNetworkQuality]: void;
+  [RTCEvent.DisconnectNetworkQuality]: void;
+  [RTCEvent.CLIENT_ERROR]: RtcError;
+  [RTCEvent.STREAM_ERROR]: RtcError;
 }
 
 /** 事件函数 */
@@ -229,11 +235,11 @@ class GmRtc implements IGmRtc {
   /** 房间内成员 */
   private _eventHandler: Map<string, IEventHandler>;
   /** 网络异常最大计数 */
-  private readonly _BadNetworkMaxCount: number;
-  /** 上行网络计数 */
-  private _upLinkBadNetworkCount: number;
-  /** 下行网络计数 */
-  private _downLinkBadNetworkCount: number;
+  private readonly _disconnectNetworkMaxCount: number;
+  /** 上行网络断开计数 */
+  private _upLinkDisconnectNetworkCount: number;
+  /** 下行网络断开计数 */
+  private _downLinkDisconnectNetworkCount: number;
 
   constructor(options: IGmRtcOptions) {
     this._sdkAppId = options.sdkAppId;
@@ -242,7 +248,7 @@ class GmRtc implements IGmRtc {
     this._roomId = options.roomId;
     this._audio = isBoolean(options.audio) ? options.audio : true;
     this._video = isBoolean(options.video) ? options.video : true;
-    this._BadNetworkMaxCount = options.badNetworkMaxCount || 5;
+    this._disconnectNetworkMaxCount = options.badNetworkMaxCount || 5;
     this._isJoined = false;
     this._isPublished = false;
     this._localAudioMuted = false;
@@ -375,6 +381,9 @@ class GmRtc implements IGmRtc {
         // doc: https://web.sdk.qcloud.com/trtc/webrtc/doc/zh-cn/module-StreamEvent.html#.PLAYER_STATE_CHANGED
         this._localStream.on(RTCEvent.PLAYER_STATE_CHANGED, event => {
           this.executeEventFn(RTCEvent.PLAYER_STATE_CHANGED, event);
+        });
+        this._localStream.on(RTCEvent.ERROR as any, error => {
+          this.executeEventFn(RTCEvent.STREAM_ERROR, error);
         });
       }
       if (!this._isJoined) {
@@ -526,7 +535,7 @@ class GmRtc implements IGmRtc {
      */
     this._client.on(RTCEvent.ERROR, err => {
       console.error('RTCEvent.ERROR', err);
-      this.executeEventFn(RTCEvent.ERROR, err);
+      this.executeEventFn(RTCEvent.CLIENT_ERROR, err);
     });
 
     /**
@@ -666,24 +675,24 @@ class GmRtc implements IGmRtc {
       this.executeEventFn(RTCEvent.NetworkQuality, evt);
       if (evt.uplinkNetworkQuality === 6) {
         // 网络断开计数加一
-        this._upLinkBadNetworkCount += 1;
+        this._upLinkDisconnectNetworkCount += 1;
       } else {
         // 网络不是断开计数置空
-        this._upLinkBadNetworkCount = 0;
+        this._upLinkDisconnectNetworkCount = 0;
       }
       if (evt.downlinkNetworkQuality === 6) {
-        this._downLinkBadNetworkCount += 1;
+        this._downLinkDisconnectNetworkCount += 1;
       } else {
-        this._downLinkBadNetworkCount = 0;
+        this._downLinkDisconnectNetworkCount = 0;
       }
       // 十秒内计数达到5（连续五次都网络失败就断开）
       if (
-        this._upLinkBadNetworkCount === this._BadNetworkMaxCount ||
-        this._downLinkBadNetworkCount === this._BadNetworkMaxCount
+        this._upLinkDisconnectNetworkCount === this._disconnectNetworkMaxCount ||
+        this._downLinkDisconnectNetworkCount === this._disconnectNetworkMaxCount
       ) {
-        this.executeEventFn(RTCEvent.BadNetworkQuality);
-        this._upLinkBadNetworkCount = 0;
-        this._downLinkBadNetworkCount = 0;
+        this.executeEventFn(RTCEvent.DisconnectNetworkQuality);
+        this._upLinkDisconnectNetworkCount = 0;
+        this._downLinkDisconnectNetworkCount = 0;
       }
     });
   }

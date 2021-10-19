@@ -38,6 +38,9 @@ export interface IDevice {
   camera: boolean;
 }
 
+/** 支持的浏览器类型 */
+export declare type supportBrowserType = string | string[] | RegExp | boolean;
+
 export interface IGmRtcProps {
   style?: React.CSSProperties;
   /** 检查设备 */
@@ -47,6 +50,10 @@ export interface IGmRtcProps {
   plugins: GmRtcClientPlugin[];
   /** 应用名称 */
   appName?: string;
+  /** 支持的浏览器 */
+  supportBrowser?: supportBrowserType;
+  /** 浏览器不支持时展示的文案 */
+  supportBrowserText?: React.ReactNode | string;
 }
 
 /** 插件事件 */
