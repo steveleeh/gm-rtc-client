@@ -1,7 +1,7 @@
 /*
  * @Author: lihanlei
  * @Date: 2021-06-27 16:41:33
- * @LastEditTime: 2021-10-19 15:32:31
+ * @LastEditTime: 2021-10-19 17:22:49
  * @LastEditors: lihanlei
  * @Description: Rtc客户端
  */
@@ -35,7 +35,7 @@ import type {
 } from 'trtc-js-sdk';
 import { getCameras, getMicrophones } from 'trtc-js-sdk';
 import Bowser from 'bowser';
-import styles from './index.less';
+import './index.less';
 import UsePrivateModel from './usePrivateModel';
 import type { IVideoView, StateType } from './models';
 import Model from './models';
@@ -106,7 +106,7 @@ export declare type renderMemberTemplateFn =
   | ((membersInfo: IMembersInfo) => React.ReactNode)
   | null;
 
-const prefix = 'gm-rtc';
+const prefixCls = 'gm-rtc';
 
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
@@ -114,7 +114,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const { style, className, device, appName, supportBrowser, supportBrowserText } = props;
 
   const { namespace, data, dispatch, getState } = UsePrivateModel<StateType | null>({
-    prefix: 'videochat',
+    prefix: 'gmrtc',
     model: Model,
   });
 
@@ -187,20 +187,20 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     return (
       <div
-        className={classNames(styles.userCard, {
-          [styles.userCardSelected]: selected,
-          [styles.userCardUnSelected]: !selected,
+        className={classNames(`${prefixCls}-user-card`, {
+          [`${prefixCls}-user-card-selected`]: selected,
+          [`${prefixCls}-user-card-unselected`]: !selected,
         })}
       >
-        <div className={styles.videoItem} id={`video-${userInfo?.memberAccount}`} />
+        <div className={`${prefixCls}-video-item`} id={`video-${userInfo?.memberAccount}`} />
         <div
-          className={styles.userCardAvatar}
+          className={`${prefixCls}-user-card-avatar`}
           style={{
             backgroundImage: `url("${EAvatarUrl[userInfo?.userCard]}")`,
           }}
         />
-        <div className={styles.userCardShade} />
-        <div className={styles.userCardText}>{renderName(userInfo, alias)}</div>
+        <div className={`${prefixCls}-user-card-shade`} />
+        <div className={`${prefixCls}-user-card-text`}>{renderName(userInfo, alias)}</div>
       </div>
     );
   };
@@ -215,7 +215,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 上报日志 */
   const debugLog = useCallback((...args: any) => {
     const params: string[] = [];
-    const { conversationId, roomId } = getState();
+    const { conversationId, roomId } = getState?.() || {};
     // eslint-disable-next-line no-plusplus
     for (let i = 0, len = args.length; i < len; i++) {
       try {
@@ -1055,7 +1055,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     const connectTemplate = loadingText => (
       <span>
         <span>{text}</span>
-        <span className={styles.loadingText}>{loadingText}</span>
+        <span className={`${prefixCls}-loading-text`}>{loadingText}</span>
       </span>
     );
     // eslint-disable-next-line consistent-return
@@ -1641,7 +1641,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染呼叫提示信息
   const renderTips = useCallback(
     (text?: React.ReactNode) => (
-      <div className={styles.tips} id="videochat-tips">
+      <div className={`${prefixCls}-tips`} id="videochat-tips">
         {text}
       </div>
     ),
@@ -1650,9 +1650,12 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   // 渲染操作按钮
   const renderOperateBtn = (name: React.ReactNode, icon: string, onClick?: MouseEventHandler) => (
-    <div className={styles.operateBtn} onClick={onClick}>
-      <div className={styles.operateBtnIcon} style={{ backgroundImage: `url("${icon}")` }} />
-      <div className={styles.operateBtnText}>{name}</div>
+    <div className={`${prefixCls}-operate-btn`} onClick={onClick}>
+      <div
+        className={`${prefixCls}-operate-btn-icon`}
+        style={{ backgroundImage: `url("${icon}")` }}
+      />
+      <div className={`${prefixCls}-operate-btn-text`}>{name}</div>
     </div>
   );
 
@@ -1661,8 +1664,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * @param val 是否展开
    */
   const renderExpandIcon = (val: boolean) => (
-    <div className={styles.expandIconContent} onClick={() => onChangeExpand(val)}>
-      <GmIcon className={styles.expandIcon} type={`fas fa-chevron-${val ? 'left' : 'right'}`} />
+    <div className={`${prefixCls}-expand-icon-content`} onClick={() => onChangeExpand(val)}>
+      <GmIcon
+        className={`${prefixCls}-expand-icon`}
+        type={`fas fa-chevron-${val ? 'left' : 'right'}`}
+      />
     </div>
   );
 
@@ -1671,22 +1677,22 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
    * @param videoView
    */
   const renderUserInfo = (videoView?: IVideoView) => (
-    <div className={styles.userInfo}>
+    <div className={`${prefixCls}-user-info`}>
       {!isNil(videoView?.stream?.getVideoTrack?.()) && (
         <div
-          className={styles.userInfoAvatarLeftTop}
+          className={`${prefixCls}-user-info-avatar-left-top`}
           style={{ backgroundImage: `url("${EAvatarUrl[videoView?.memberInfo?.userCard]}")` }}
         />
       )}
       {isNil(videoView?.stream?.getVideoTrack?.()) && (
         <div
-          className={styles.userInfoAvatarCenter}
+          className={`${prefixCls}-user-info-avatar-center`}
           style={{ backgroundImage: `url("${EAvatarUrl[videoView?.memberInfo?.userCard]}")` }}
         />
       )}
-      <div className={styles.userInfoText}>
-        <div className={styles.userInfoName}>{renderName(videoView?.memberInfo)}</div>
-        <div id={`${prefix}__user-info__tips`} className={styles.userInfoTips}>
+      <div className={`${prefixCls}-user-info-text`}>
+        <div className={`${prefixCls}-user-info-name`}>{renderName(videoView?.memberInfo)}</div>
+        <div id={`${prefixCls}__user-info__tips`} className={`${prefixCls}-user-info-tips`}>
           {otherInfoPluginElement}
         </div>
       </div>
@@ -1703,7 +1709,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染被呼叫
   const renderBeCall = (
     <React.Fragment>
-      <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
+      <div className={`${prefixCls}-call-container`}>{renderUserInfo(mainVideoView)}</div>
       {renderAudio(ECallAudio.BE_CALLED)}
     </React.Fragment>
   );
@@ -1711,7 +1717,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染呼叫用户中
   const renderOnCall = (
     <React.Fragment>
-      <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
+      <div className={`${prefixCls}-call-container`}>{renderUserInfo(mainVideoView)}</div>
       {renderAudio(ECallAudio.ON_CALL)}
     </React.Fragment>
   );
@@ -1719,7 +1725,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染通话中
   const renderCalling = (
     <React.Fragment>
-      <div className={styles.callContainer}>{renderUserInfo(mainVideoView)}</div>
+      <div className={`${prefixCls}-call-container`}>{renderUserInfo(mainVideoView)}</div>
     </React.Fragment>
   );
 
@@ -1785,38 +1791,46 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
 
   return (
     <div
-      className={classNames({ [styles.fullScreen]: fullScreen }, styles.container, className)}
+      className={classNames(
+        { [`${prefixCls}-fullscreen`]: fullScreen },
+        `${prefixCls}-container`,
+        prefixCls,
+        className,
+      )}
       style={style}
     >
-      <Draggable handle=".can-drag" disabled={fullScreen}>
+      <Draggable handle={`.${prefixCls}-can-drag`} disabled={fullScreen}>
         <ResizableBox
           draggableOpts={{ disabled: fullScreen }}
           width={512}
           height={300}
           minConstraints={[379, 222]}
           resizeHandles={['sw', 'se', 'nw', 'ne']}
-          className={classNames(styles.resizableBox, 'videochat-realize-box')}
-          // maxConstraints={[800, 800]}
+          className={classNames(`${prefixCls}-resizable-box`, 'videochat-realize-box')}
           lockAspectRatio
         >
-          <div className={classNames(styles.bg, 'can-drag')}>
-            <div className={styles.leftContent}>
-              <div className={styles.mainVideo} id="main-video" />
+          <div className={classNames(`${prefixCls}-bg`, `${prefixCls}-can-drag`)}>
+            <div className={`${prefixCls}-left-content`}>
+              <div className={`${prefixCls}-main-video`} id="main-video" />
               <GmIcon
                 type={`fa ${fullScreen ? 'fa-compress-alt' : 'fa-expand-alt'}`}
-                className={styles.screenFullIcon}
+                className={`${prefixCls}-fullscreen-icon`}
                 onClick={() => handleChangeFullScreen(fullScreen)}
               />
               {callState === ECallState.BE_CALLED && renderBeCall}
               {callState === ECallState.ON_CALL && renderOnCall}
               {callState === ECallState.CALLING && renderCalling}
               {renderExpandIcon(expand)}
-              <div className={styles.footer}>
+              <div className={`${prefixCls}-footer`}>
                 {renderTips(tipText)}
-                <div className={styles.buttonGroup}>{renderButtonGroup}</div>
+                <div className={`${prefixCls}-button-group`}>{renderButtonGroup}</div>
               </div>
             </div>
-            <div className={classNames(styles.rightContent, { [styles.contentExpand]: expand })}>
+            <div
+              className={classNames(`${prefixCls}-right-content`, {
+                [`${prefixCls}-content-expand`]: expand,
+              })}
+            >
               {renderMemberList}
             </div>
           </div>
