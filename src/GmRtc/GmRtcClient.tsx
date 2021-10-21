@@ -1,7 +1,7 @@
 /*
  * @Author: lihanlei
  * @Date: 2021-06-27 16:41:33
- * @LastEditTime: 2021-10-19 17:22:49
+ * @LastEditTime: 2021-10-21 11:18:43
  * @LastEditors: lihanlei
  * @Description: Rtc客户端
  */
@@ -287,13 +287,19 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const onCallEnd = async () => {
     debugLog('触发了定时器结束事件（被呼叫或者呼叫他人，倒计时2分钟没有接通，就结束该次通话）');
     const videoCallState = getState()?.callState;
+    const mainMember = getState()?.mainMember;
     if (videoCallState === ECallState.BE_CALLED) {
       GmNotification.warn(EMessageText.USER_CANCEL);
+      GmNotification.warn(
+        `${mainMember?.nickname}【${CallerUserCardText[mainMember?.userCard]}】超时取消`,
+      );
       await leave(ECancelEventType.TIMEOUT_REJECT);
       return;
     }
     if (videoCallState === ECallState.ON_CALL) {
-      GmNotification.warn(EMessageText.SELF_TIMEOUT_CANCEL);
+      GmNotification.warn(
+        `${mainMember?.nickname}【${CallerUserCardText[mainMember?.userCard]}】超时未接听`,
+      );
       await leave(ECancelEventType.TIMEOUT_CANCEL);
     }
   };
@@ -712,7 +718,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleClientError = (error: RtcError) => {
     const errorCode = error.getCode() as unknown as number;
     debugLog('handleClientError', errorCode, error);
-    console.log('handleClientError', error);
+    console.error('handleClientError', error);
   };
 
   /**
@@ -723,7 +729,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleStreamError = (error: RtcError) => {
     const errorCode = error.getCode() as unknown as number;
     debugLog('handleStreamError', errorCode, error);
-    console.log('handleStreamError', error);
+    console.error('handleStreamError', error);
     if (errorCode === 0x4043) {
       // 自动播放受限，引导用户手势操作并调用 stream.resume 恢复音视频播放
       // 参考：https://trtc-1252463788.file.myqcloud.com/web/docs/module-ErrorCode.html#.PLAY_NOT_ALLOWED
@@ -1173,7 +1179,11 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       await client.join();
       await client.publish();
     }
-    await setMainMember(params.calledAccountNo);
+    const mainMemberMemberAccount = find(
+      getAllMembers(),
+      o => o.accountNo === params.calledAccountNo,
+    );
+    await setMainMember(mainMemberMemberAccount?.memberAccount);
   });
 
   /** 取消音视频会话 */
@@ -1199,8 +1209,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   };
 
   /**
-   * 设置主叫人
-   * @param imkey 主叫人imkey
+   * 设置主要人
+   * @param imkey 主要人imkey
    */
   const setMainMember = async (imkey: string) => {
     const mainMember = find(getAllMembers(), o => o.memberAccount === imkey);
@@ -1345,7 +1355,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await pluginContainer?.onTimeoutRejectMessage?.(msg);
     const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
     GmNotification.warn(
-      `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】超时拒绝`,
+      `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】超时未接听`,
     );
     if (msg.isKeyMember === EKeyMember.MAIN) {
       await leave(ECancelEventType.CANCEL);

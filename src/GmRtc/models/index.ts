@@ -42,7 +42,7 @@ export interface StateType {
   selfMember: Nullable<IMembersInfo>;
   /** 拓展的用户（用于右侧自定义用户卡片拓展） */
   extraMembers: IMembersInfo[];
-  /** 主叫人（视频通话的发起者） */
+  /** 主要人（当自己拨打其他人，其他人就是主要人。当自己被邀请，邀请自己进房的人就是主要人。主要人用来标识超时挂断等场景另一个人的身份信息） */
   mainMember: Nullable<IMembersInfo>;
   /** 已经完成用户是否展示（已拒绝、已超时、已挂断用户默认不在右侧面板展示） */
   finishedMemberVisible: boolean;
