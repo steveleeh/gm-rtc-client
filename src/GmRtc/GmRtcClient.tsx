@@ -1,7 +1,7 @@
 /*
  * @Author: lihanlei
  * @Date: 2021-06-27 16:41:33
- * @LastEditTime: 2021-10-21 11:18:43
+ * @LastEditTime: 2021-10-26 09:39:38
  * @LastEditors: lihanlei
  * @Description: Rtc客户端
  */
@@ -139,6 +139,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       return true;
     }
     const browserName = Bowser.getParser(window.navigator.userAgent).getBrowserName();
+    debugLog('浏览器名称', browserName);
     if (isString(supportBrowsers)) {
       return browserName === supportBrowsers;
     }
@@ -690,7 +691,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         break;
       default:
     }
-    await leave(ECancelEventType.HANG_UP);
+    await leave(getCancelType());
   };
 
   /** Audio/Video Player 状态变化 */
@@ -706,7 +707,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 推流失败 */
   const handlePublishError = async (error: RtcError) => {
     GmNotification.error('视频流推送失败');
-    await leave(ECancelEventType.CANCEL);
+    await leave(getCancelType());
     debugLog('视频流推送失败事件', error);
   };
 
@@ -777,15 +778,13 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
         }】离开房间`,
         level: EMessageLevel.MIDDLE,
       });
-      GmNotification.warn(
-        `${memberInfo?.nickname}【${CallerUserCardText[memberInfo.userCard as number]}】离开房间`,
-      );
       debugLog(
         `${memberInfo?.nickname}（${CallerUserCardText[memberInfo.userCard as number]}）离开房间`,
       );
       // 主要人离开房间
       if (memberInfo.isKeyMember === EKeyMember.MAIN) {
-        await leave(ECancelEventType.CANCEL);
+        await leave(getCancelType());
+        debugLog('远端用户离房,触发关键人离开房间导致房间解散', memberInfo);
       }
     }
     await updateVideoView();
@@ -817,7 +816,8 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     if (memberInfo) {
       // 关键人离开结束通话
       if (memberInfo.isKeyMember === EKeyMember.MAIN) {
-        await leave(ECancelEventType.CANCEL);
+        await leave(getCancelType());
+        debugLog('远端流移除，有关键人离开', memberInfo);
       }
     }
     debugLog('远端流移除', evt);
@@ -848,7 +848,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleDisconnectNetworkQuality = async () => {
     GmNotification.warn(EMessageText.NETWORK_ERROR);
     debugLog('网络断开');
-    await leave(ECancelEventType.CANCEL);
+    await leave(getCancelType());
   };
 
   /**
@@ -1267,7 +1267,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await setMainMember(msg.sponsorImKey);
     if (isUserLeave()) {
       debugLog('有关键人离开', getState()?.originMembers);
-      await leave(ECancelEventType.HANG_UP);
+      await leave(ECancelEventType.CANCEL);
     } else {
       // 设置拨打状态
       await changeCallState(ECallState.BE_CALLED);
@@ -1537,6 +1537,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   const handleOnRefuse = async () => {
     GmNotification.warn(EMessageText.SELF_REJECT);
     await leave(ECancelEventType.REJECT);
+    debugLog('点击拒绝', ECancelEventType.REJECT);
   };
 
   /** 挂断 */
