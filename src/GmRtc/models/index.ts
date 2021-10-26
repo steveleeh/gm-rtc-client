@@ -68,6 +68,8 @@ export interface StateType {
   extend: Nullable<string>;
   /** 通话时长: 毫秒 */
   time: number;
+  /** 咨询单id（取消会话时候用，不建议放在这里。低层次的会话单不应该关心高层次的咨询单的业务） */
+  consultationContentId?: number;
   [key: string]: any;
 }
 
@@ -98,6 +100,7 @@ const initialState = (): StateType => ({
   extend: null,
   time: 0,
   originMembers: [],
+  consultationContentId: null,
 });
 
 const Model: BaseModel<StateType> = {
