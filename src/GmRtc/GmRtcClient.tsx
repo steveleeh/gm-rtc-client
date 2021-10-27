@@ -1,7 +1,7 @@
 /*
  * @Author: lihanlei
  * @Date: 2021-06-27 16:41:33
- * @LastEditTime: 2021-10-26 10:37:14
+ * @LastEditTime: 2021-10-27 10:29:51
  * @LastEditors: lihanlei
  * @Description: Rtc客户端
  */
@@ -1544,7 +1544,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   /** 挂断 */
   const handleOnCancel = async () => {
     GmNotification.warn(EMessageText.SELF_CANCEL);
-    await leave(ECancelEventType.HANG_UP);
+    await leave(getCancelType());
     debugLog('点击挂断');
   };
 
