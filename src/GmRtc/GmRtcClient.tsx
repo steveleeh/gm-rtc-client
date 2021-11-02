@@ -1,7 +1,7 @@
 /*
  * @Author: lihanlei
  * @Date: 2021-06-27 16:41:33
- * @LastEditTime: 2021-10-27 10:29:51
+ * @LastEditTime: 2021-11-02 14:05:14
  * @LastEditors: lihanlei
  * @Description: Rtc客户端
  */
@@ -107,6 +107,9 @@ export declare type renderMemberTemplateFn =
   | null;
 
 const prefixCls = 'gm-rtc';
+
+/** 日志的自增序号（用来标识事件发生的先后） */
+let logSequence: number = 1;
 
 export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawProps, ref) => {
   const props = resolveProps(rawProps);
@@ -214,8 +217,9 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   );
 
   /** 上报日志 */
-  const debugLog = useCallback((...args: any) => {
+  const debugLog = useCallback(async (...args: any) => {
     const params: string[] = [];
+
     const { conversationId, roomId } = getState?.() || {};
     // eslint-disable-next-line no-plusplus
     for (let i = 0, len = args.length; i < len; i++) {
@@ -227,8 +231,19 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
       }
     }
 
+    params.push(`logSequence=${logSequence}`);
     params.push(`conversationId=${conversationId}`);
     params.push(`roomId=${roomId}`);
+
+    console.log(
+      `%c${logSequence}%c  %c ${params[0]} \n%c详细参数: ${params.join('----')}`,
+      'color:blue;font-size: 20px;',
+      '',
+      'color:red;font-size: 20px;',
+      '',
+    );
+
+    logSequence += 1;
 
     const date = new Date();
     gmLog.info({
@@ -909,6 +924,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     setStreamTargetDate(undefined);
     setOtherInfoPluginElement(null);
     setRenderMemberTemplate(() => renderUserCardDefaultTemplate);
+    logSequence = 1;
     // 清除toast资源
     if (messageToast) {
       messageToast.clear();
@@ -1373,9 +1389,18 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     }
     await pluginContainer?.onSwitchMessage?.(msg);
     const memberInfo = getMemberInfoByUserId(msg?.sponsorImKey);
-    GmNotification.warn(
-      `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】摄像头已关闭`,
-    );
+    // 从视频转到音频
+    if (msg.callType === ECallType.AUDIO) {
+      GmNotification.warn(
+        `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】摄像头已关闭`,
+      );
+    }
+    // 从音频转到视频
+    if (msg.callType === ECallType.VIDEO) {
+      GmNotification.success(
+        `${memberInfo?.nickname}【${CallerUserCardText[memberInfo?.userCard]}】摄像头已开启`,
+      );
+    }
   };
 
   /** 进房 */
@@ -1403,11 +1428,21 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     await updateVideoView();
   };
 
+  /** 更新房间信息 */
+  const handleVideoChatRefreshRoomStatus = async (msg: IVideoChatMessage) => {
+    debugLog('消息:更新房间信息', msg);
+    if (ignoreMessage(msg)) {
+      return;
+    }
+    await pluginContainer?.onRefreshRoomStatus?.(msg);
+    await updateVideoView();
+  };
+
   /**
    * 结束通话
    * @param eventType 取消音视频事件类型
    * @description （1）加锁：防止同时多次调用导致同时释放资源异常;
-   * （2）需要处理catch,防止网络中断导致后续函数不执行；
+   *              （2）需要处理catch,防止网络中断导致后续函数不执行；
    */
   const leave = useLockFn(async (eventType?: ECancelEventType) => {
     debugLog('结束通话', eventType);
@@ -1633,6 +1668,7 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
     onSwitchMessage: handleVideoChatSwitch,
     onEnterRoomMessage: handleVideoChatEnterRoom,
     onAddMemberMessage: handleVideoChatAddMember,
+    onRefreshRoomStatus: handleVideoChatRefreshRoomStatus,
   };
 
   const pluginContext = {

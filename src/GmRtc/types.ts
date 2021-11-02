@@ -88,6 +88,8 @@ export enum PluginEvent {
   ENTER_ROOM_MESSAGE = 'onEnterRoomMessage',
   /** 新增成员消息 */
   ADD_MEMBER_MESSAGE = 'onAddMemberMessage',
+  /** 新增成员消息 */
+  REFRESH_ROOM_STATUS_MESSAGE = 'onRefreshRoomStatus',
   /** 进房成功 */
   JOIN_SUCCESS = 'onJoinSuccess',
   /** 进房失败 */
@@ -152,6 +154,7 @@ export interface PluginRtcEventMap {
   [PluginEvent.SWITCH_MESSAGE]: IVideoChatMessage;
   [PluginEvent.ENTER_ROOM_MESSAGE]: IVideoChatMessage;
   [PluginEvent.ADD_MEMBER_MESSAGE]: IVideoChatMessage;
+  [PluginEvent.REFRESH_ROOM_STATUS_MESSAGE]: IVideoChatMessage;
   [PluginEvent.JOIN_SUCCESS]: any;
   [PluginEvent.JOIN_ERROR]: any;
   [PluginEvent.INITIALIZE_SUCCESS]: any;
