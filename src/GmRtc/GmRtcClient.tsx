@@ -1,8 +1,8 @@
 /*
  * @Author: lihanlei
  * @Date: 2021-06-27 16:41:33
- * @LastEditTime: 2021-11-02 14:05:14
- * @LastEditors: lihanlei
+ * @LastEditTime: 2021-11-15 15:40:59
+ * @LastEditors: your name
  * @Description: Rtc客户端
  */
 import type { MouseEventHandler } from 'react';
@@ -1811,14 +1811,12 @@ export const GmRtcClient = React.forwardRef<GmRtcClientRef, IGmRtcProps>((rawPro
   // 渲染静音按钮
   const renderMuteBtn =
     callState === ECallState.CALLING &&
-    videoType === ECallType.AUDIO &&
     !mute &&
     renderOperateBtn('静音', EIconUrl.MUTE, handleOnMute);
 
   // 渲染静音按钮
   const renderUnMuteBtn =
     callState === ECallState.CALLING &&
-    videoType === ECallType.AUDIO &&
     mute &&
     renderOperateBtn('取消静音', EIconUrl.UNMUTE, handleOnUnmute);
 
